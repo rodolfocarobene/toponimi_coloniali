@@ -3,10 +3,15 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .DS_Store
+
+# Download e output grezzi/rigenerabili
 data/raw/*
+data/candidates/wikipedia_candidates.csv
+data/candidates/candidate_review.csv
+
+# Output elaborati locali; si versionano solo i due file leggeri usati da GitHub Pages
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-# Lightweight derived files required to reproduce the public GitHub Pages dashboard.
 !data/processed/dashboard_data.csv
 !data/processed/people_registry_used.csv
