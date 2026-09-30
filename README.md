@@ -18,7 +18,7 @@ Per l'inventario nazionale degli odonimi viene utilizzato **ANNCSU**, l'Archivio
 Civici e delle Strade Urbane. OpenStreetMap può essere usato come controllo o fonte geometrica aggiuntiva,
 ma non come unica fonte per stabilire l'esistenza di un odonimo ufficiale.
 
-Il registro delle persone è invece curato manualmente in:
+Il registro delle persone è curato manualmente in:
 
 ```text
 data/manual/people_registry.csv
@@ -51,22 +51,36 @@ pytest -q
 python scripts/01_discover_people.py
 ```
 
-Output:
+Output locale:
 
 ```text
 data/candidates/wikipedia_candidates.csv
 ```
 
 Questa lista serve solo come supporto alla ricerca. Non viene considerata automaticamente un registro
-storicamente verificato.
+storicamente verificato e, essendo completamente rigenerabile, non viene versionata nel repository.
 
-È disponibile anche uno script opzionale di promozione automatica:
+È disponibile anche un helper sperimentale che prepara una tabella di revisione:
 
 ```bash
-python scripts/01c_promote_candidates.py --online
+python scripts/01c_promote_candidates.py
 ```
 
-ma per l'analisi pubblicata è preferibile il registro curato manualmente.
+che produce:
+
+```text
+data/candidates/candidate_review.csv
+```
+
+Lo script **non** modifica il registro manuale. La decisione finale su quali figure includere resta manuale,
+in particolare per evitare falsi positivi, oppositori del colonialismo inclusi per semplice co-occorrenza
+e casi di omonimia odonomastica.
+
+È possibile anche estrarre candidati da libri o PDF locali:
+
+```bash
+python scripts/01b_extract_people_from_books.py libro1.pdf libro2.pdf
+```
 
 ### 2. Download dello stradario ANNCSU
 
@@ -74,7 +88,8 @@ ma per l'analisi pubblicata è preferibile il registro curato manualmente.
 python scripts/02_download_anncsu.py
 ```
 
-Scarica lo stradario nazionale e la tabella ISTAT dei comuni.
+Scarica lo stradario nazionale e la tabella ISTAT dei comuni. I download ANNCSU grezzi non vengono
+versionati su GitHub.
 
 ### 3. Matching tra persone e odonimi
 
@@ -177,17 +192,29 @@ data/processed/dashboard_data.csv
 data/processed/people_registry_used.csv
 ```
 
-Gli archivi ANNCSU grezzi rimangono esclusi da Git tramite `.gitignore`.
+Gli archivi ANNCSU grezzi e gli altri output intermedi rimangono esclusi da Git tramite `.gitignore`.
 
 Per attivare GitHub Pages nel repository, selezionare:
 
 **Settings → Pages → Build and deployment → Source → GitHub Actions**
 
-Il sito del repository `toponimi_coloniali` sarà normalmente disponibile all'indirizzo:
+Per questo repository il sito sarà normalmente disponibile all'indirizzo:
 
 ```text
-https://<utente>.github.io/toponimi_coloniali/
+https://rodolfocarobene.github.io/toponimi_coloniali/
 ```
+
+## Aggiornare i dati pubblicati
+
+Dopo aver eseguito la pipeline localmente, committare i due file leggeri usati dalla dashboard pubblica:
+
+```bash
+git add data/processed/dashboard_data.csv data/processed/people_registry_used.csv
+git commit -m "Aggiorna dati dashboard"
+git push
+```
+
+Il workflow GitHub Pages rigenererà automaticamente il sito.
 
 ## Struttura del progetto
 
@@ -197,7 +224,7 @@ scripts/                     pipeline e generatore del sito statico
 src/colonial_toponymy/       libreria Python
 config/                      configurazione delle fonti
 data/manual/                 registro curato e dati storici manuali
-data/candidates/             liste di candidati
+data/candidates/             output di discovery rigenerabili
 data/processed/              output derivati
 data/raw/                    download grezzi, non versionati
 .github/workflows/           pubblicazione GitHub Pages
