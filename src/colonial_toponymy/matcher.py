@@ -30,10 +30,17 @@ def load_registry(path: str | Path) -> pd.DataFrame:
 
 def build_alias_records(registry: pd.DataFrame) -> list[AliasRecord]:
     records: list[AliasRecord] = []
-    surname_counts = registry["canonical_name"].map(surname).value_counts().to_dict()
+    person_mask = (
+        registry["entity_type"].replace("", "person").eq("person")
+        if "entity_type" in registry
+        else pd.Series(True, index=registry.index)
+    )
+    surname_counts = registry.loc[person_mask, "canonical_name"].map(surname).value_counts().to_dict()
+
     for _, row in registry.iterrows():
         person_id = row["person_id"]
         canonical = row["canonical_name"]
+        entity_type = str(row.get("entity_type", "person") or "person")
         aliases = [a.strip() for a in str(row.get("aliases", "")).split(";") if a.strip()]
         if canonical not in aliases:
             aliases.insert(0, canonical)
@@ -43,16 +50,33 @@ def build_alias_records(registry: pd.DataFrame) -> list[AliasRecord]:
             if not alias_norm or alias_norm in seen:
                 continue
             seen.add(alias_norm)
-            is_surname = len(alias_norm.split()) == 1 and alias_norm == surname(canonical)
-            allowed = bool(row.get("allow_surname_only", False)) and surname_counts.get(alias_norm, 0) == 1
-            records.append(AliasRecord(
-                person_id=person_id,
-                canonical_name=canonical,
-                alias=alias,
-                alias_norm=alias_norm,
-                match_kind="surname" if is_surname else ("canonical" if alias == canonical else "alias"),
-                allow_surname_only=allowed,
-            ))
+
+            # A one-word canonical place name (Libia, Adua, Dogali, Asmara...) is a
+            # complete authority label, not a surname-only person match.
+            is_surname = (
+                entity_type == "person"
+                and len(alias_norm.split()) == 1
+                and alias_norm == surname(canonical)
+            )
+            allowed = (
+                is_surname
+                and bool(row.get("allow_surname_only", False))
+                and surname_counts.get(alias_norm, 0) == 1
+            )
+            records.append(
+                AliasRecord(
+                    person_id=person_id,
+                    canonical_name=canonical,
+                    alias=alias,
+                    alias_norm=alias_norm,
+                    match_kind=(
+                        "surname"
+                        if is_surname
+                        else ("canonical" if alias == canonical else "alias")
+                    ),
+                    allow_surname_only=allowed,
+                )
+            )
     return records
 
 
@@ -91,8 +115,12 @@ def match_odonimo(odonimo: str, aliases: list[AliasRecord], fuzzy_threshold: int
     return best
 
 
-def match_dataframe(streets: pd.DataFrame, registry: pd.DataFrame, odonym_col: str,
-                    fuzzy_threshold: int = 93) -> pd.DataFrame:
+def match_dataframe(
+    streets: pd.DataFrame,
+    registry: pd.DataFrame,
+    odonym_col: str,
+    fuzzy_threshold: int = 93,
+) -> pd.DataFrame:
     aliases = build_alias_records(registry)
     rows = []
     for _, row in streets.iterrows():
@@ -101,7 +129,8 @@ def match_dataframe(streets: pd.DataFrame, registry: pd.DataFrame, odonym_col: s
             out = row.to_dict()
             out.update(match)
             out["review_status"] = (
-                "accepted_auto" if match["match_method"] in {"exact_canonical", "exact_alias"}
+                "accepted_auto"
+                if match["match_method"] in {"exact_canonical", "exact_alias"}
                 else "needs_review"
             )
             rows.append(out)
