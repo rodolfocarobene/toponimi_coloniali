@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toponimi-coloniali"
+version = "0.1.0"
+description = "Pipeline riproducibile per studiare gli odonimi italiani legati a figure del colonialismo italiano."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "beautifulsoup4>=4.12",
+  "numpy>=1.26",
+  "openpyxl>=3.1",
+  "pandas>=2.2",
+  "plotly>=5.24",
+  "pyarrow>=17",
+  "PyMuPDF>=1.24",
+  "PyYAML>=6.0",
+  "rapidfuzz>=3.9",
+  "requests>=2.32",
+  "streamlit>=1.39",
+]
+
+[project.optional-dependencies]
+nlp = ["spacy>=3.7"]
+dev = ["pytest>=8.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

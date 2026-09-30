@@ -1,0 +1,29 @@
+wikipedia:
+  language: it
+  search_queries:
+    - "\"governatore\" Eritrea italiana"
+    - "\"governatore\" Libia italiana"
+    - "\"governatore\" Cirenaica italiana"
+    - "\"governatore\" Tripolitania italiana"
+    - "\"viceré\" Etiopia italiano"
+    - "\"guerra d'Etiopia\" generale italiano"
+    - "\"guerra italo-turca\" generale italiano"
+    - "\"ministro delle colonie\" Italia"
+  categories:
+    - "Governatori dell'Eritrea"
+    - "Governatori della Libia italiana"
+    - "Governatori dell'Africa Orientale Italiana"
+    - "Militari italiani della guerra italo-turca"
+    - "Militari italiani della guerra d'Etiopia"
+
+anncsu:
+  landing_page: "https://www.anncsu.gov.it/it/consultazione-dellarchivio/open-data/Accedi-ai-servizi-di-dowload-massivo-in-Open-data/"
+  istat_municipalities_xlsx: "https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx"
+
+matching:
+  fuzzy_threshold: 93
+  surname_only_threshold: 100
+  auto_accept_exact_full_name: true
+  auto_accept_exact_alias: true
+  require_manual_review_for_surname_only: true
+  require_manual_review_for_fuzzy: true
