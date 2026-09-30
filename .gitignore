@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+# Lightweight derived files required to reproduce the public GitHub Pages dashboard.
+!data/processed/dashboard_data.csv
+!data/processed/people_registry_used.csv
