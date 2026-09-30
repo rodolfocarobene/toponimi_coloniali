@@ -24,6 +24,7 @@ def main():
     matches = pd.read_csv(args.matches, dtype=str).fillna("")
     all_coords = []
     raw = Path(args.raw_dir)
+    regions_processed = 0
     for region, sub in matches.groupby("region_name"):
         if not region:
             continue
@@ -34,14 +35,26 @@ def main():
             try:
                 zip_path = download_region_address_file(region, raw)
             except Exception as exc:
+                # Geocoding is an enrichment step. A missing/unavailable
+                # regional archive must not discard the matched odonyms or
+                # abort processing of the other regions.
                 print(f"Warning: skipping geocoding for {region}: {exc}")
                 continue
         if not zip_path.exists():
             print(f"Skipping {region}: no regional address ZIP")
             continue
+        regions_processed += 1
         ids = set(sub["progressivo_odonimo"].astype(str))
         coords = representative_coordinates(zip_path, ids)
         all_coords.append(coords)
+
+    if regions_processed == 0 and args.no_download:
+        raise SystemExit(
+            "No ANNCSU regional address ZIPs were found in "
+            f"{raw}. The --no-download option only works after those archives have "
+            "already been downloaded. Run this command once WITHOUT --no-download:\n"
+            "  python scripts/04_geocode_matches.py"
+        )
 
     coords = pd.concat(all_coords, ignore_index=True).drop_duplicates("progressivo_odonimo") if all_coords else pd.DataFrame()
     out = matches.merge(coords, on="progressivo_odonimo", how="left") if len(coords) else matches.copy()
