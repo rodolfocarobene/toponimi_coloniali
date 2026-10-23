@@ -27,3 +27,25 @@ matching:
   auto_accept_exact_alias: true
   require_manual_review_for_surname_only: true
   require_manual_review_for_fuzzy: true
+
+# Luoghi pubblici intitolati (scuole, universita, altri luoghi): scaricati da scripts/02b_download_public_places.py
+# in data/raw/public_places/. Date di accesso: 2026-10-23. L'elenco dei file effettivamente scaricati
+# (URL, data, dimensione) e' in data/raw/public_places/manifest.json.
+public_places:
+  mim_catalog_page: "https://dati.istruzione.it/opendata/opendata/catalogo/elements1/?area=Scuole"
+  mim_catalog_base: "https://dati.istruzione.it/opendata/opendata/catalogo/elements1"
+  # Anagrafe scuole statali (SCUANAGRAFESTAT<aaaa><aa><data>.csv) e paritarie (SCUANAGRAFEPAR...), MIM,
+  # ultimo anno scolastico in catalogo (2026/27, file ...20262720260901.csv; ~13 MB + ~2.5 MB).
+  # Licenza: Italian Open Data License v2.0. Nessuna coordinata: si usa il centroide del comune.
+  # Le province autonome di Trento e Bolzano e la Valle d'Aosta non sono nel dataset MIM.
+  mur_ckan_api: "https://dati-ustat.mur.gov.it/api/3/action"
+  # MUR / Ufficio di Statistica: "<anno> Contribuzione e interventi atenei" (risorsa "Strutture atenei":
+  # elenco dei nomi degli atenei) e "<anno> Collegi universitari" (risorsa "Alloggi per comune").
+  # Ultimo anno disponibile: 2025. Licenza: Italian Open Data License v2.0.
+  wikidata_sparql: "https://query.wikidata.org/sparql"
+  # Wikidata (CC0): centroidi dei comuni (P625, codice ISTAT P635) e oggetti in Italia con P138
+  # "intitolato a" una persona del registro (ricerca per etichetta esatta nome e cognome).
+  overpass_endpoint: "https://overpass-api.de/api/interpreter"
+  # OpenStreetMap (ODbL) via Overpass, per regione: biblioteche, municipi, ospedali, teatri, caserme,
+  # stadi, parchi, musei, aeroporti, universita il cui nome contiene un nome del registro, piu i
+  # conteggi totali per regione (denominatore). Fonte meno stabile di MIM/MUR: nomi non ufficiali.

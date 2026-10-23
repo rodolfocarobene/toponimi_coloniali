@@ -146,6 +146,48 @@ python scripts/05_merge_history.py
 
 Le date di modifica degli oggetti OpenStreetMap non vengono usate come date di intitolazione.
 
+### Luoghi pubblici intitolati (scuole, università, altri luoghi)
+
+Oltre agli odonimi, il registro viene confrontato con i nomi di luoghi pubblici (ad esempio le scuole
+intitolate ad Antonio Locatelli). Passi aggiuntivi, da eseguire prima di `05_merge_history.py`:
+
+```bash
+python scripts/02b_download_public_places.py    # oppure: make download-places
+python scripts/03b_match_public_places.py       # oppure: make match-places
+python scripts/05_merge_history.py
+```
+
+Fonti (URL e date di accesso in `config/sources.yml`; elenco dei file scaricati in
+`data/raw/public_places/manifest.json`, cartella non versionata):
+
+| `site_kind`      | Fonte                                                                                          | Note |
+|------------------|------------------------------------------------------------------------------------------------|------|
+| `odonimo`        | ANNCSU                                                                                         | come sopra |
+| `scuola`         | MIM, Anagrafe scuole statali e paritarie (open data, ultimo anno scolastico disponibile)         | sedi e istituti di riferimento; senza coordinate; mancano Trento, Bolzano e Valle d'Aosta |
+| `universita`     | MUR/USTAT: elenco degli atenei e collegi universitari (ultimo anno); Wikidata e OSM per le intitolazioni | pochi nomi intitolati a persone del registro |
+| `luogo_pubblico` | Wikidata (proprietà P138 «intitolato a») e OpenStreetMap (biblioteche, municipi, ospedali, teatri, caserme, stadi, parchi, musei, aeroporti) | copertura parziale: non esiste un elenco nazionale di aule, sale o auditorium |
+
+Regole di matching, le stesse degli odonimi con alcune cautele:
+
+- i prefissi istituzionali vengono rimossi come i prefissi stradali (`I.C.`, `Istituto comprensivo`,
+  `Liceo scientifico`, `Scuola primaria`, `Aula magna`, ...) e si provano anche le parti tra virgolette
+  o separate da « - »;
+- nome completo o alias esatto di una persona: accettato automaticamente;
+- solo cognome (se `allow_surname_only`), iniziale + cognome (`A. LOCATELLI`) e fuzzy: sempre in revisione manuale;
+- nomi che iniziano con un prefisso stradale (`VIA ADUA`) sono indirizzi, non intitolazioni, e vengono scartati;
+- voci del registro dei luoghi e delle battaglie (Libia, Adua, ...): sempre in revisione manuale, perché
+  una scuola in via Adua non è intitolata ad Adua;
+- le corrispondenze Wikidata trovate tramite la persona a cui l'oggetto è intitolato sono sempre in revisione
+  (omonimi possibili).
+
+Colonne aggiunte a `dashboard_data.csv`: `site_kind`, `site_detail` (tipo di scuola, istituto, tipo OSM/Wikidata),
+`total_kind_region` (numero di elementi dello stesso tipo nella regione, denominatore; per gli odonimi coincide con
+`total_odonimi_region`), `coord_precision` (`street_median`, `point` oppure `municipality_centroid`),
+`place_source` e `place_source_id`. Le scuole non hanno coordinate nella fonte: si usa il centroide del comune
+(Wikidata), indicato in `coord_precision`. Per gli oggetti OSM il comune è dedotto dal tag `addr:city` o dal
+centroide comunale più vicino nella stessa regione (approssimato). Il denominatore dei `luogo_pubblico` conta gli
+oggetti OSM con nome delle categorie interrogate; le voci Wikidata non rientrano nel denominatore.
+
 ### 6. Dashboard locale
 
 ```bash
@@ -220,7 +262,7 @@ Il workflow GitHub Pages rigenererà automaticamente il sito.
 
 ```text
 app/                         dashboard Streamlit
-scripts/                     pipeline e generatore del sito statico
+scripts/                     pipeline e generatore del sito statico (02b/03b: luoghi pubblici)
 src/colonial_toponymy/       libreria Python
 config/                      configurazione delle fonti
 data/manual/                 registro curato e dati storici manuali

@@ -7,37 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from colonial_toponymy.anncsu import load_istat_municipalities, load_stradario
-from colonial_toponymy.matcher import load_registry, match_dataframe
-
-
-def _load_authorities(people_path: str, places_path: str | None) -> pd.DataFrame:
-    people = load_registry(people_path)
-    if "entity_type" not in people:
-        people["entity_type"] = "person"
-    else:
-        people["entity_type"] = people["entity_type"].replace("", "person")
-
-    frames = [people]
-    if places_path:
-        p = Path(places_path)
-        if p.exists():
-            places = load_registry(p)
-            if "entity_type" not in places:
-                places["entity_type"] = "place"
-            else:
-                places["entity_type"] = places["entity_type"].replace("", "place")
-            frames.append(places)
-        else:
-            print(f"Warning: place/battle registry not found: {p}")
-
-    registry = pd.concat(frames, ignore_index=True, sort=False).fillna("")
-    if registry.duplicated(["person_id", "canonical_name"]).any():
-        dup = registry.loc[
-            registry.duplicated(["person_id", "canonical_name"], keep=False),
-            ["person_id", "canonical_name"],
-        ]
-        raise ValueError(f"Duplicate authority identifiers:\n{dup.to_string(index=False)}")
-    return registry
+from colonial_toponymy.matcher import load_authorities, match_dataframe
 
 
 def main():
@@ -68,7 +38,7 @@ def main():
     muni = load_istat_municipalities(args.municipalities)
     streets = streets.merge(muni, on="municipality_belfiore", how="left")
 
-    registry = _load_authorities(args.registry, args.places_registry or None)
+    registry = load_authorities(args.registry, args.places_registry or None)
 
     registry_snapshot = Path(args.registry_snapshot)
     registry_snapshot.parent.mkdir(parents=True, exist_ok=True)
