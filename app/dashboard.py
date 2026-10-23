@@ -22,6 +22,8 @@ st.markdown(
     div[data-testid="stPlotlyChart"] { background:#fffdf8; border:1px solid #ddd5c7; border-radius:18px; padding:8px; }
     h2,h3 { font-family:Georgia,serif !important; color:#203536 !important; }
     .block-container { padding-top:1.7rem; max-width:1500px; }
+    @media (max-width:760px){ .hero h1{font-size:1.9rem;} .hero{padding:20px;} }
+    @media (prefers-color-scheme: dark){ .stApp{background:#141b1b;color:#e8ece9;} [data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#1c2625;border-color:#2f3d3b;} h2,h3{color:#e8ece9 !important;} }
     </style>
     """,
     unsafe_allow_html=True,
@@ -31,7 +33,7 @@ st.markdown(
     """
     <div class="hero"><div class="eyebrow">Atlante della memoria coloniale</div>
     <h1>Toponimi italiani legati al colonialismo</h1>
-    <p>Odonimi ufficiali ANNCSU associati a persone, territori, città e battaglie presenti in un registro curato. Una corrispondenza nominale non dimostra, da sola, che l'intitolazione sia stata scelta specificamente per celebrare quel ruolo storico.</p></div>
+    <p>Intitolazioni (vie e piazze ANNCSU, scuole, università e altri luoghi pubblici) associate a persone, territori, città e battaglie presenti in un registro curato. Una corrispondenza nominale non dimostra, da sola, che l'intitolazione sia stata scelta specificamente per celebrare quel ruolo storico.</p></div>
     """,
     unsafe_allow_html=True,
 )
@@ -42,20 +44,26 @@ ROLE_LABELS = {
     "military_and_administration": "Militare e amministrazione coloniale",
     "military_political_administration": "Militare, politica e amministrazione coloniale",
     "military_and_religious": "Militare e religioso", "economic": "Economia e impresa",
+    "economic_and_colonization": "Economia e colonizzazione", "political_economic_administration": "Politica, economia e amministrazione coloniale",
     "cultural_or_scientific": "Cultura o scienza", "religious": "Religioso",
     "exploration_geography": "Esplorazione e geografia", "propaganda_or_advocacy": "Propaganda e promozione coloniale",
     "territory": "Territorio / colonia", "city_or_locality": "Città o località", "battle_or_campaign": "Battaglia / campagna",
 }
+KIND_LABELS = {"odonimo": "Vie e piazze", "scuola": "Scuole", "universita": "Università", "luogo_pubblico": "Altri luoghi pubblici"}
 ENTITY_LABELS = {"person": "Persona", "place": "Luogo / battaglia"}
 TERRITORY_LABELS = {"Libya": "Libia", "Eritrea": "Eritrea", "Ethiopia": "Etiopia", "Somalia": "Somalia", "Italian East Africa": "Africa Orientale Italiana", "Dodecanese": "Dodecaneso", "Albania": "Albania"}
 
 
 def role_label(v: str) -> str:
-    return ROLE_LABELS.get(v, str(v).replace("_", " ").capitalize())
+    return ROLE_LABELS.get(v, (str(v).replace("_", " ")[:1].upper() + str(v).replace("_", " ")[1:]))
 
 
 def entity_label(v: str) -> str:
     return ENTITY_LABELS.get(v or "person", v or "Persona")
+
+
+def kind_label(v: str) -> str:
+    return KIND_LABELS.get(v or "odonimo", v)
 
 
 def territory_label(v: str) -> str:
@@ -63,7 +71,7 @@ def territory_label(v: str) -> str:
 
 
 def reset_filters() -> None:
-    for key in ["entity_filter", "include_filter", "exclude_filter", "region_filter", "role_filter", "territory_filter"]:
+    for key in ["kind_filter", "entity_filter", "include_filter", "exclude_filter", "region_filter", "role_filter", "territory_filter"]:
         st.session_state[key] = []
     st.session_state["accepted_filter"] = True
 
@@ -79,12 +87,20 @@ if "entity_type" not in df:
     df["entity_type"] = "person"
 else:
     df["entity_type"] = df["entity_type"].replace("", "person")
+if "site_kind" not in df:
+    df["site_kind"] = "odonimo"
+else:
+    df["site_kind"] = df["site_kind"].replace("", "odonimo")
+if "site_detail" not in df:
+    df["site_detail"] = ""
 base_df = df.copy()
 
 with st.sidebar:
     st.header("Esplora")
     st.caption("Le selezioni sono chip removibili con ×.")
     st.button("↺ Azzera tutti i filtri", on_click=reset_filters, use_container_width=True)
+    kinds = [k for k in KIND_LABELS if k in set(base_df["site_kind"])]
+    selected_kinds = st.multiselect("Tipo di sede", kinds, format_func=kind_label, key="kind_filter")
     selected_entities = st.multiselect("Tipologia", sorted(base_df["entity_type"].unique()), format_func=entity_label, key="entity_filter")
     options = sorted(x for x in base_df["canonical_name"].unique() if x)
     selected = st.multiselect("Mostra solo questi riferimenti", options, key="include_filter")
@@ -95,6 +111,7 @@ with st.sidebar:
     terr = sorted({t.strip() for s in base_df["territories"] for t in str(s).split(";") if t.strip()})
     selected_terr = st.multiselect("Territori coloniali", terr, format_func=territory_label, key="territory_filter")
 
+    if selected_kinds: df = df[df["site_kind"].isin(selected_kinds)]
     if selected_entities: df = df[df["entity_type"].isin(selected_entities)]
     if selected: df = df[df["canonical_name"].isin(selected)]
     if excluded: df = df[~df["canonical_name"].isin(excluded)]
@@ -107,41 +124,46 @@ with st.sidebar:
     if snap.exists(): st.download_button("↓ Scarica il registro usato nel matching", snap.read_bytes(), "registro_matching_utilizzato.csv", "text/csv", use_container_width=True)
 
 c1,c2,c3,c4 = st.columns(4)
-c1.metric("Odonimi trovati", f"{len(df):,}")
+c1.metric("Intitolazioni trovate", f"{len(df):,}")
 c2.metric("Comuni", f"{df['municipality_belfiore'].nunique():,}")
-c3.metric("Riferimenti", f"{df['person_id'].nunique():,}")
+c3.metric("Riferimenti distinti", f"{df['person_id'].nunique():,}")
 c4.metric("Regioni", f"{df['region_name'].nunique():,}")
 
 st.subheader("Differenze regionali")
-metric = st.radio("Metrica", ["Odonimi trovati", "Per 10.000 odonimi ANNCSU", "Comuni con almeno una corrispondenza"], horizontal=True, label_visibility="collapsed")
-if metric == "Odonimi trovati": regional = df.groupby("region_name").size().reset_index(name="value")
-elif metric == "Per 10.000 odonimi ANNCSU":
-    regional = df.groupby("region_name").agg(matches=("progressivo_odonimo","size"),total=("total_odonimi_region","first")).reset_index(); regional["total"] = pd.to_numeric(regional["total"],errors="coerce"); regional["value"] = 10000*regional["matches"]/regional["total"]
+metric = st.radio("Metrica", ["Intitolazioni trovate", "Per 10.000 sedi della stessa tipologia", "Comuni con almeno una corrispondenza"], horizontal=True, label_visibility="collapsed")
+if metric == "Intitolazioni trovate": regional = df.groupby("region_name").size().reset_index(name="value")
+elif metric == "Per 10.000 sedi della stessa tipologia":
+    den_col = "total_kind_region" if "total_kind_region" in df else "total_odonimi_region"
+    tmp = df.assign(den=pd.to_numeric(df[den_col].replace("", pd.NA).fillna(df.get("total_odonimi_region", pd.NA)), errors="coerce"))
+    den = tmp.groupby(["region_name", "site_kind"])["den"].first().groupby("region_name").sum()
+    regional = tmp.groupby("region_name").size().rename("matches").to_frame().join(den.rename("total")).reset_index(); regional["value"] = 10000*regional["matches"]/regional["total"]
 else: regional = df.groupby("region_name")["municipality_belfiore"].nunique().reset_index(name="value")
 regional = regional[regional["region_name"]!=""].sort_values("value")
-fig = px.bar(regional,x="value",y="region_name",orientation="h"); fig.update_traces(marker_color="#335d5b"); fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)")
-st.plotly_chart(fig,use_container_width=True)
+fig = px.bar(regional,x="value",y="region_name",orientation="h"); fig.update_traces(marker_color="#335d5b"); fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",margin=dict(l=10,r=10,t=10,b=10)); fig.update_yaxes(automargin=True,title=None)
+st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
 
 left,right = st.columns(2)
 with left:
     st.subheader("Riferimenti più rappresentati")
-    top=df.groupby("canonical_name").size().nlargest(20).sort_values().reset_index(name="odonimi"); fig=px.bar(top,x="odonimi",y="canonical_name",orientation="h"); fig.update_traces(marker_color="#a4452a"); fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)"); st.plotly_chart(fig,use_container_width=True)
+    top=df.groupby("canonical_name").size().nlargest(20).sort_values().reset_index(name="intitolazioni"); fig=px.bar(top,x="intitolazioni",y="canonical_name",orientation="h"); fig.update_traces(marker_color="#a4452a"); fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",margin=dict(l=10,r=10,t=10,b=10)); fig.update_yaxes(automargin=True,title=None); st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
 with right:
     st.subheader("Categorie")
-    cat=df.groupby("role_category").size().sort_values().reset_index(name="odonimi"); cat["label"]=cat["role_category"].map(role_label); fig=px.bar(cat,x="odonimi",y="label",orientation="h"); fig.update_traces(marker_color="#d09a3a"); fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)"); st.plotly_chart(fig,use_container_width=True)
+    cat=df.groupby("role_category").size().sort_values().reset_index(name="intitolazioni"); cat["label"]=cat["role_category"].map(role_label); fig=px.bar(cat,x="intitolazioni",y="label",orientation="h"); fig.update_traces(marker_color="#d09a3a"); fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",margin=dict(l=10,r=10,t=10,b=10)); fig.update_yaxes(automargin=True,title=None); st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
 
 if {"lat","lon"}.issubset(df.columns):
     map_df=df.copy(); map_df["lat"]=pd.to_numeric(map_df["lat"],errors="coerce"); map_df["lon"]=pd.to_numeric(map_df["lon"],errors="coerce"); map_df=map_df.dropna(subset=["lat","lon"])
     if len(map_df):
         st.subheader("Mappa interattiva")
-        map_df["categoria"] = map_df["role_category"].map(role_label)
-        fig=px.scatter_map(map_df,lat="lat",lon="lon",hover_name="odonimo",hover_data=["municipality_name","region_name","canonical_name","entity_type","territories"],color="categoria",zoom=4.6,height=680)
-        fig.update_traces(marker={"size":11,"opacity":.86}); fig.update_layout(map_style="carto-positron",map=dict(center={"lat":42.4,"lon":12.5},zoom=4.6),margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor="rgba(0,0,0,0)",legend_title_text="Categoria")
-        st.plotly_chart(fig,use_container_width=True); st.caption(f"{len(map_df):,} dei {len(df):,} odonimi filtrati dispongono di coordinate rappresentative.")
+        map_df["site_kind"] = map_df["site_kind"].map(kind_label); map_df["categoria"] = map_df["role_category"].map(role_label)
+        fig=px.scatter_map(map_df,lat="lat",lon="lon",hover_name="odonimo",hover_data=["site_kind","municipality_name","region_name","canonical_name","entity_type","territories"],color="categoria",zoom=4.6,height=680)
+        fig.update_traces(marker={"size":11,"opacity":.86}); fig.update_layout(map_style="carto-positron",map=dict(center={"lat":42.4,"lon":12.5},zoom=4.6),margin=dict(l=0,r=0,t=0,b=0),paper_bgcolor="rgba(0,0,0,0)",legend_title_text="Categoria",legend=dict(orientation="h",yanchor="top",y=-0.01,font=dict(size=10)))
+        st.plotly_chart(fig,use_container_width=True); st.caption(f"{len(map_df):,} dei {len(df):,} intitolazioni filtrate dispongono di coordinate rappresentative.")
 
 st.subheader("Dati")
-cols=[c for c in ["odonimo","municipality_name","province_name","region_name","canonical_name","entity_type","role_category","territories","match_method","match_score","review_status","source_url"] if c in df]
+cols=[c for c in ["site_kind","odonimo","site_detail","municipality_name","province_name","region_name","canonical_name","entity_type","role_category","territories","match_method","match_score","review_status","source_url"] if c in df]
 display=df[cols].copy()
+if "site_kind" in display: display["site_kind"]=display["site_kind"].map(kind_label)
+if "site_detail" in display and not (display["site_detail"]!="").any(): display=display.drop(columns="site_detail")
 if "entity_type" in display: display["entity_type"]=display["entity_type"].map(entity_label)
 if "role_category" in display: display["role_category"]=display["role_category"].map(role_label)
 st.dataframe(display,use_container_width=True,hide_index=True)
