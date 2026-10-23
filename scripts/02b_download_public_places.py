@@ -209,12 +209,16 @@ nwr.U["name"~"{regex}",i];
 out center tags;"""
         r = None
         for attempt in range(3):
-            r = requests.post(endpoint, data={"data": query}, headers=HEADERS, timeout=240)
-            if r.status_code == 200:
-                break
+            try:
+                r = requests.post(endpoint, data={"data": query}, headers=HEADERS, timeout=240)
+                if r.status_code == 200:
+                    break
+            except requests.RequestException as exc:
+                print(f"  {region}: {type(exc).__name__}")
+                r = None
             time.sleep(30 * (attempt + 1))
-        if r.status_code != 200:
-            print(f"  WARNING: Overpass failed for {region} (HTTP {r.status_code}); re-run to retry")
+        if r is None or r.status_code != 200:
+            print(f"  WARNING: Overpass failed for {region}; re-run to retry")
             continue
         save(dest, r.content, manifest, f"OpenStreetMap via Overpass ({region})", endpoint)
         time.sleep(10)

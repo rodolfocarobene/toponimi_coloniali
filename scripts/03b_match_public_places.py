@@ -109,6 +109,7 @@ def main():
         ]
     ).groupby(["region_name", "site_kind"], as_index=False)["n"].sum().rename(columns={"n": "total_kind_region"})
     matches = matches.merge(totals, on=["region_name", "site_kind"], how="left")
+    matches["total_kind_region"] = matches["total_kind_region"].astype("Int64")
 
     matches = matches.rename(columns={"place_source_id": "progressivo_odonimo", "name": "odonimo"})
     matches["place_source_id"] = matches["progressivo_odonimo"]

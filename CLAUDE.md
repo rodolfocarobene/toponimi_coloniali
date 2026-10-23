@@ -13,10 +13,12 @@ Italiano per documentazione, testo dell'interfaccia, messaggi di commit e commen
 Identificatori Python in inglese, come nel codice attuale.
 
 ## Ambiente e comandi
-- Virtualenv: `/home/rodolfo/Venv/poutpurri` (il pacchetto è già installato in modalità editable).
-  Usare `/home/rodolfo/Venv/poutpurri/bin/python`; non installare nulla a livello di sistema.
-- `pytest` non è ancora installato nel venv: per i test serve `python -m pip install -e '.[dev]'` (chiedere prima).
-- Test: `pytest -q` (oppure `make test`). Eseguirli dopo ogni modifica a `src/` o agli script di matching.
+- Virtualenv: `/home/rodolfo/Venv/poutpurri` (`/home/rodolfo/Venv/poutpurri/bin/python`, con pytest);
+  non installare nulla a livello di sistema.
+- Attenzione: l'install editable nel venv punta a un altro checkout (`../italian_colonial_toponymy/src`).
+  Lanciare script e test con `PYTHONPATH=src` (il Makefile lo esporta già), altrimenti si importa il pacchetto sbagliato.
+- Test: `PYTHONPATH=src pytest -q` (oppure `make test`). Eseguirli dopo ogni modifica a `src/` o agli script di matching.
+- `03_match_streets.py` impiega ~25 minuti; `03b_match_public_places.py` ~90 secondi.
 - Pipeline: `make download | match | geocode | history`, poi `python scripts/06_build_static_site.py`.
 - Dashboard locale: `streamlit run app/dashboard.py`.
 
