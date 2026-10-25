@@ -37,7 +37,16 @@ public_places:
   # Anagrafe scuole statali (SCUANAGRAFESTAT<aaaa><aa><data>.csv) e paritarie (SCUANAGRAFEPAR...), MIM,
   # ultimo anno scolastico in catalogo (2026/27, file ...20262720260901.csv; ~13 MB + ~2.5 MB).
   # Licenza: Italian Open Data License v2.0. Nessuna coordinata: si usa il centroide del comune.
-  # Le province autonome di Trento e Bolzano e la Valle d'Aosta non sono nel dataset MIM.
+  # Le province autonome di Trento e Bolzano e la Valle d'Aosta non sono nel dataset MIM; si usano:
+  #  - Trento: "Istituzioni scolastiche del Trentino", dati.trentino.it (PAT, licenza CC0), XML con
+  #    istituzioni e unita' didattiche (plessi). ATTENZIONE: istantanea del 2014-09-10 (l'ultima
+  #    pubblicata); nomi e comuni possono essere cambiati (fusioni di comuni).
+  #  - Bolzano e Valle d'Aosta: nessun elenco open data trovato (data.civis.bz.it / Open Data Hub e
+  #    portali regionali VdA non pubblicano un registro delle scuole; dati.regione.vda.it non esiste,
+  #    scuole.vda.it non raggiungibile). Ripiego: elementi Wikidata (CC0) "scuola" collocati in un
+  #    comune di BZ (ISTAT 021*) o VdA (007*), importati in blocco dagli elenchi ufficiali: copertura
+  #    e nomi non verificati (denominatori approssimati). Accesso 2026-10-25.
+  trento_schools_xml: "https://dati.trentino.it/dataset/18034fef-88e5-4d4d-906d-5fdc381303cc/resource/1a04a591-14d7-49c9-a011-d54bc427fa0f/download/exportesco10092014.xml"
   mur_ckan_api: "https://dati-ustat.mur.gov.it/api/3/action"
   # MUR / Ufficio di Statistica: "<anno> Contribuzione e interventi atenei" (risorsa "Strutture atenei":
   # elenco dei nomi degli atenei) e "<anno> Collegi universitari" (risorsa "Alloggi per comune").
@@ -49,3 +58,16 @@ public_places:
   # OpenStreetMap (ODbL) via Overpass, per regione: biblioteche, municipi, ospedali, teatri, caserme,
   # stadi, parchi, musei, aeroporti, universita il cui nome contiene un nome del registro, piu i
   # conteggi totali per regione (denominatore). Fonte meno stabile di MIM/MUR: nomi non ufficiali.
+
+# Orientamento politico delle amministrazioni: scaricato da scripts/07_download_politics.py in
+# data/raw/politics/ (manifest.json con URL, data di accesso e dimensione). Date di accesso: 2026-10-25.
+politics:
+  interno_page: "https://dait.interno.gov.it/elezioni/open-data/amministratori-locali-e-regionali-in-carica"
+  # Ministero dell'Interno, Anagrafe degli amministratori locali e regionali, "in carica al 24/08/2026".
+  # Licenza non dichiarata sulla pagina. Colonne usate: descrizione_carica, data_elezione,
+  # lista_appartenenza/collegamento (tutte le liste che sostengono il sindaco o il presidente).
+  mayors_csv: "https://dait.interno.gov.it/documenti/maggiororgano.csv"   # ~2 MB, sindaci e commissari
+  regional_csv: "https://dait.interno.gov.it/documenti/ammreg.csv"        # ~0,2 MB, consiglieri/presidenti
+  party_families: "config/party_families.yml"
+  # Campania e Marche mancano tra i presidenti del file regionale: aggiunti a mano in party_families.yml
+  # (region_additions) con fonte Wikipedia.

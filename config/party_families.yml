@@ -1,0 +1,105 @@
+# Classificazione delle liste elettorali in famiglie politiche (usata da scripts/07_download_politics.py).
+#
+# Il testo grezzo (lista_appartenenza/collegamento) e' una sequenza di liste separate da " | ", cioe'
+# tutte le liste che sostengono il sindaco (o il presidente). Il testo viene normalizzato (maiuscolo,
+# senza accenti, apostrofi e punteggiatura -> spazio) e confrontato con le espressioni regolari qui sotto.
+#
+# Regole (nell'ordine, vedi src/colonial_toponymy/politics.py):
+#   1. testo vuoto o "Lista non pervenuta"                    -> n.d.
+#   2. nessuna lista del sostegno riconosciuta                -> civica
+#   3. si raccolgono le famiglie riconosciute su tutte le liste:
+#        - "neutro" (Azione, Italia Viva, autonomisti, destra radicale...) si ignora se c'e' altro
+#        - solo centrodestra                                   -> centrodestra
+#        - solo centrosinistra, oppure centrosinistra + m5s    -> centrosinistra
+#        - solo m5s                                            -> m5s
+#        - solo neutro                                         -> altro
+#        - centrodestra insieme a centrosinistra/m5s           -> altro (coalizione trasversale)
+# Le liste civiche pure non cambiano il risultato: "civica" solo se non c'e' alcun partito riconosciuto.
+# Limite noto: una lista civica sostenuta di fatto da un partito, ma senza il suo nome, risulta "civica".
+# Il confronto e' fatto lista per lista (segmenti separati da " | "); parole intere (\b) e ancoraggi ^ $
+# evitano falsi positivi (es. "LEGA" in "LEGAMBIENTE", "AZIONE CIVICA" non e' Azione di Calenda).
+# Scelte su casi ambigui:
+#   - Azione, Italia Viva, +Europa/Radicali: Italia Viva e Azione -> neutro (alleanze variabili);
+#     +Europa -> centrosinistra (in coalizione quasi ovunque con il PD alle comunali).
+#   - UDC, Noi Moderati, Popolo della Liberta', Lega, FI, FdI -> centrodestra.
+#   - M5S da solo -> m5s; con centrosinistra -> centrosinistra (campo largo).
+#   - PSI -> centrosinistra; SVP, Union Valdotaine, PSd'Az, CasaPound/Forza Nuova -> neutro.
+families:
+  centrodestra:
+    - "FRATELLI D ITALIA"
+    - "\\bFDI\\b"
+    - "F LLI D ITALIA"
+    - "GIORGIA MELONI"
+    - "\\bLEGA\\b"
+    - "SALVINI"
+    - "FORZA ITALIA"
+    - "BERLUSCONI"
+    - "NOI MODERATI"
+    - "\\bUDC\\b"
+    - "UNIONE DI CENTRO\\b(?! ?(SINISTRA|DESTRA))"
+    - "POPOLO DELLA LIBERTA"
+    - "\\bPDL\\b"
+    - "CENTRO ?DESTRA"
+    - "FORZA AZZURRI"
+  centrosinistra:
+    - "PARTITO DEMOCRATICO"
+    - "\\bPD\\b"
+    - "ALLEANZA VERDI"
+    - "VERDI E SINISTRA"
+    - "SINISTRA ITALIANA"
+    - "EUROPA VERDE"
+    - "\\bARTICOLO 1\\b"
+    - "RIFONDAZIONE COMUNISTA"
+    - "PARTITO SOCIALISTA"
+    - "\\bPSI\\b"
+    - "\\+ ?EUROPA"
+    - "CENTRO ?SINISTRA"
+  m5s:
+    - "MOVIMENTO 5 STELLE"
+    - "\\bM5S\\b"
+    - "\\b5 STELLE\\b"
+  neutro:
+    - "CALENDA"
+    - "^AZIONE$"
+    - "AZIONE SIAMO EUROPEI"
+    - "ITALIA VIVA"
+    - "UNION VALDOTAINE"
+    - "SUDTIROLER VOLKSPARTEI"
+    - "\\bSVP\\b"
+    - "PARTITO SARDO D AZIONE"
+    - "CASAPOUND"
+    - "FORZA NUOVA"
+none_markers:
+  - "LISTA NON PERVENUTA"
+
+# Coalizione dei presidenti di regione (region_politics.csv). Di norma ricavata dalle liste collegate
+# con le stesse regole; qui le correzioni quando la lista collegata non e' disponibile o contiene solo
+# una lista civica col nome del candidato. Ogni voce ha una fonte pubblica verificabile.
+region_coalition_overrides:
+  "Lazio":
+    coalition: centrodestra
+    source_url: "https://it.wikipedia.org/wiki/Elezioni_regionali_nel_Lazio_del_2023"
+  "Friuli-Venezia Giulia":
+    coalition: centrodestra
+    source_url: "https://it.wikipedia.org/wiki/Elezioni_regionali_in_Friuli-Venezia_Giulia_del_2023"
+  "Sicilia":
+    coalition: centrodestra
+    source_url: "https://it.wikipedia.org/wiki/Elezioni_regionali_in_Sicilia_del_2022"
+  "Valle d'Aosta/Vallée d'Aoste":
+    coalition: altro
+    source_url: "https://it.wikipedia.org/wiki/Elezioni_regionali_in_Valle_d%27Aosta_del_2025"
+
+# Regioni assenti dal file "amministratori regionali" dell'Anagrafe (al 24/08/2026 mancano Campania e
+# Marche; Trentino-Alto Adige non ha un presidente di regione eletto direttamente, quindi resta fuori).
+# Righe complete aggiunte a mano, verificate sulle pagine di Wikipedia indicate (primo giorno di voto).
+region_additions:
+  - region_name: "Campania"
+    president: "Roberto Fico"
+    coalition: centrosinistra
+    election_date: "2025-11-23"
+    source_url: "https://it.wikipedia.org/wiki/Elezioni_regionali_in_Campania_del_2025"
+  - region_name: "Marche"
+    president: "Francesco Acquaroli"
+    coalition: centrodestra
+    election_date: "2025-09-28"
+    source_url: "https://it.wikipedia.org/wiki/Elezioni_regionali_nelle_Marche_del_2025"

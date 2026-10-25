@@ -16,3 +16,5 @@ data/processed/*
 !data/processed/.gitkeep
 !data/processed/dashboard_data.csv
 !data/processed/people_registry_used.csv
+!data/processed/municipality_politics.csv
+!data/processed/region_politics.csv

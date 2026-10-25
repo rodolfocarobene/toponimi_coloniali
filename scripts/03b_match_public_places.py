@@ -18,6 +18,7 @@ from colonial_toponymy.places import match_places_dataframe
 from colonial_toponymy.public_sources import (
     ENTITY_COLUMNS,
     assign_nearest_municipality,
+    load_autonomous_schools,
     load_municipalities,
     load_osm,
     load_schools,
@@ -45,6 +46,8 @@ def _match_names(entities: pd.DataFrame, registry: pd.DataFrame, fuzzy_threshold
     matched = match_places_dataframe(texts, registry, "match_text", fuzzy_threshold=fuzzy_threshold)
     if matched.empty:
         return matched
+    # A bare surname is no evidence for a Wikidata honoree label (those are full names).
+    matched = matched[~((matched["via"] == "honoree") & (matched["match_method"] == "surname_in_name"))]
     matched.loc[matched["via"] == "honoree", "review_status"] = "needs_review"
     matched.loc[matched["via"] == "honoree", "match_method"] = (
         "honoree_" + matched.loc[matched["via"] == "honoree", "match_method"]
@@ -54,6 +57,11 @@ def _match_names(entities: pd.DataFrame, registry: pd.DataFrame, fuzzy_threshold
     for rec in entities.to_dict("records"):
         hits = [keys.get((rec["name"], "name")), keys.get((rec["name_alt"], "honoree"))]
         hits = [h for h in hits if h]
+        if not hits:
+            continue
+        # Bare-surname candidates only for organisations (schools, universities), not buildings/parks/streets.
+        if rec["site_kind"] not in ("scuola", "universita"):
+            hits = [h for h in hits if h["match_method"] != "surname_in_name"]
         if not hits:
             continue
         best = max(hits, key=lambda h: (h["review_status"] == "accepted_auto", h["match_score"]))
@@ -81,15 +89,16 @@ def main():
     muni = load_municipalities(load_istat_municipalities(args.municipalities), raw)
 
     schools, school_totals = load_schools(raw, muni)
+    aut_schools, aut_totals = load_autonomous_schools(raw, muni)
     universities, university_totals = load_universities(raw, muni)
     wikidata = load_wikidata(raw, muni)
     osm, osm_totals = load_osm(raw, muni)
     print(
-        f"Entities: {len(schools)} schools/institutes, {len(universities)} universities/colleges, "
+        f"Entities: {len(schools)} schools/institutes (+{len(aut_schools)} from Trento, Bolzano, Valle d'Aosta), {len(universities)} universities/colleges, "
         f"{len(wikidata)} Wikidata items, {len(osm)} OSM candidates (name contains a registry name)."
     )
 
-    entities = pd.concat([schools, universities, wikidata, osm], ignore_index=True)[ENTITY_COLUMNS].fillna("")
+    entities = pd.concat([schools, aut_schools, universities, wikidata, osm], ignore_index=True)[ENTITY_COLUMNS].fillna("")
     matches = _match_names(entities, registry, args.fuzzy_threshold)
     if matches.empty:
         raise SystemExit("No public-place matches found.")
@@ -103,7 +112,7 @@ def main():
 
     totals = pd.concat(
         [
-            school_totals.reset_index().assign(site_kind="scuola").rename(columns={"total_kind_region": "n"}),
+            pd.concat([school_totals, aut_totals]).groupby(level=0).sum().reset_index().assign(site_kind="scuola").rename(columns={"total_kind_region": "n"}),
             university_totals.reset_index().assign(site_kind="universita").rename(columns={"total_kind_region": "n"}),
             osm_totals,
         ]

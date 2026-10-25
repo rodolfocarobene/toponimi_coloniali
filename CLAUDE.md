@@ -24,10 +24,13 @@ Identificatori Python in inglese, come nel codice attuale.
 
 ## Struttura
 - `src/colonial_toponymy/`: libreria (`normalize.py`, `matcher.py`, `anncsu.py`, `io_utils.py`).
-- `scripts/01*–06_*.py`: passi numerati della pipeline; `06_build_static_site.py` genera `docs/index.html`.
+- `scripts/01*–07_*.py`: passi numerati della pipeline; `02b`/`03b` scuole e luoghi pubblici (MIM, MUR, OSM, Wikidata),
+  `07_download_politics.py` sindaci e presidenti di Regione; `06_build_static_site.py` genera `docs/index.html`
+  (schede Esplora / Perché questi nomi / Politica; usare solo stili mappa Plotly integrati, i tile raster Carto richiedono API key).
 - `config/sources.yml`: query Wikipedia, URL ANNCSU/ISTAT, soglie di matching.
 - `data/manual/`: registri curati a mano (`people_registry.csv`, `place_registry.csv`, `street_history.csv`).
-- `data/processed/`: output derivati; solo `dashboard_data.csv` e `people_registry_used.csv` sono versionati.
+- `data/processed/`: output derivati; versionati solo `dashboard_data.csv`, `people_registry_used.csv`,
+  `municipality_politics.csv`, `region_politics.csv`.
 - `data/raw/`: download ANNCSU grezzi, non versionati.
 
 ## Principi metodologici (da rispettare nel codice e nei testi)

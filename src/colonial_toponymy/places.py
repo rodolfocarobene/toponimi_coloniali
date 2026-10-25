@@ -16,7 +16,7 @@ import re
 import pandas as pd
 
 from .matcher import build_alias_records, match_odonimo
-from .normalize import HONORIFICS, ROAD_PREFIXES, normalize_text
+from .normalize import HONORIFICS, ROAD_PREFIXES, normalize_text, surname
 
 ACRONYMS = {
     "ic", "ics", "ico", "iis", "isis", "isi", "iti", "itis", "itc", "itcg", "itg", "ita", "itn", "itt",
@@ -41,7 +41,12 @@ INSTITUTION_WORDS = {
     "civica", "civico", "museo", "palazzo", "municipio", "universita", "collegio", "residenza",
     "dipartimento", "facolta", "aeroporto", "casa", "campo", "sportivo", "piscina", "sportiva",
     "polisportivo", "intitolata", "intitolato", "dedicata", "dedicato", "universitario", "universitaria",
-    "studentesca", "studentato",
+    "studentesca", "studentato", "quadriennale",
+    # lingua tedesca/ladina (Bolzano): Grundschule, Mittelschule, Oberschule...
+    "grundschule", "mittelschule", "oberschule", "schule", "schulsprengel", "sprengel", "gymnasium",
+    "realgymnasium", "lyzeum", "handelsoberschule", "fachoberschule", "berufsschule", "landesberufsschule",
+    "fachschule", "kindergarten", "kindergarten", "schulzentrum", "schulstelle", "und", "fur", "lingua",
+    "italiana", "tedesca", "ladina", "in", "scola", "elementara", "mesana", 
     "per", "di", "del", "della", "dello", "dei", "degli", "delle", "dell", "ed", "il", "la", "lo", "le",
     "gli", "in", "al", "alla", "allo", "ai", "agli", "alle", "da",
 }
@@ -56,6 +61,7 @@ TRAILING_WORDS = {
 _DOTTED = re.compile(r"\b(?:[A-Za-z]\.){2,}")
 _PAREN = re.compile(r"\([^)]*\)")
 _QUOTED = re.compile(r"[\"“”«»]([^\"“”«»]{3,})[\"“”«»]|(?<![\w])'([^']{3,})'(?![\w])")
+_SEG_SPLIT = re.compile(r"[\"“”«»]|(?<![\w])'|'(?![\w])|\s*[-–—/,;*]\s*")
 _SPLIT = re.compile(r"\s[-–—/]\s|\s*[,;]\s*|\s*\*\s*")
 
 
@@ -125,19 +131,83 @@ def match_place_name(raw: str, aliases, fuzzy_threshold: int = 93) -> dict | Non
     return best
 
 
+# Segment-leading tokens that are not part of a dedication ("SECON. I GR. LOCATELLI-ORIANI").
+SEGMENT_NOISE = {"secon", "gr", "i", "iii", "iv", "sup", "inf", "1", "2", "3"}
+# Surnames excluded from the surname_in_name tier (judged on the MIM data, see README):
+SURNAME_IN_NAME_EXCLUDED = {
+    # also the name of a comune or locality: "CANEVA - SARONE", "SM SCALEA", "BONO", "GALLIANO-ROSSINI"
+    "aosta", "bono", "caneva", "lessona", "orero", "scalea", "galliano", "saletta",
+    # homonyms far more famous or more common than the registry person (Aristide Gabelli, Alessandro
+    # Antonelli, Cesare Balbo...): a bare surname is almost never the colonial figure
+    "gabelli", "martini", "antonelli", "giuliani", "bertolini", "gasparini", "gandolfi", "nasi",
+    "martino", "vecchi", "balbo", "volpi", "tassoni", "raggi", "rava", "feo", "zoli", "lucchese",
+    "pintor", "corni", "mombelli",
+}
+
+
+def surname_in_name_index(registry: pd.DataFrame, excluded: set[str] | None = None) -> dict[str, dict]:
+    """surname -> person, for registry persons with a unique single-token surname."""
+    excluded = SURNAME_IN_NAME_EXCLUDED if excluded is None else excluded
+    persons = registry[registry["entity_type"].replace("", "person").eq("person")]
+    by_surname: dict[str, list] = {}
+    for _, row in persons.iterrows():
+        sname = surname(row["canonical_name"])
+        if len(sname) >= 4 and sname not in excluded:
+            by_surname.setdefault(sname, []).append(row)
+    # A surname shared by 2+ registry people cannot be attributed to one of them: skipped.
+    return {s: {"person_id": r[0]["person_id"], "canonical_name": r[0]["canonical_name"]}
+            for s, r in by_surname.items() if len(r) == 1}
+
+
+def segments(raw: str) -> list[str]:
+    """Name segments: split on quotes, hyphens (with or without spaces), slashes, commas, stars."""
+    text = _collapse_acronyms(_PAREN.sub(" ", str(raw or "")))
+    return [p for p in _SEG_SPLIT.split(text) if p and p.strip()]
+
+
+def match_surname_in_name(raw: str, index: dict[str, dict]) -> dict | None:
+    """Review-only tier: a registry surname that is a whole segment of the name once institutional
+    words are stripped ("PRIMARIA LOCATELLI", "I.C. LOCATELLI-QUASIMODO"). Never when a first name,
+    initial or title accompanies the surname, nor for address names."""
+    for seg in segments(raw):
+        norm = normalize_place_name(seg)
+        tokens = norm.split()
+        while tokens and tokens[0] in SEGMENT_NOISE:
+            tokens.pop(0)
+        if len(tokens) != 1 or tokens[0] not in index:
+            continue
+        if is_address_name(normalize_text(seg)):
+            continue
+        person = index[tokens[0]]
+        return {
+            **person,
+            "matched_alias": tokens[0].title(),
+            "match_score": 90.0,
+            "match_method": "surname_in_name",
+            "odonimo_normalized": norm,
+            "matched_text": seg.strip(),
+        }
+    return None
+
+
 def match_places_dataframe(
     places: pd.DataFrame,
     registry: pd.DataFrame,
     name_col: str,
     fuzzy_threshold: int = 93,
+    surname_in_name: bool = True,
 ) -> pd.DataFrame:
     """Like matcher.match_dataframe, for public-place names. Same review rules, plus: place/battle
-    entries and initial+surname forms are never auto-accepted."""
+    entries and initial+surname forms are never auto-accepted; the surname_in_name tier (surname as
+    a standalone segment) is a fallback, always needs_review."""
     aliases = build_alias_records(registry)
+    sin_index = surname_in_name_index(registry) if surname_in_name else {}
     entity_type = dict(zip(registry["person_id"], registry["entity_type"]))
     rows = []
     for _, row in places.iterrows():
         match = match_place_name(str(row[name_col]), aliases, fuzzy_threshold=fuzzy_threshold)
+        if not match and sin_index:
+            match = match_surname_in_name(str(row[name_col]), sin_index)
         if not match:
             continue
         out = row.to_dict()

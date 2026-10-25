@@ -1,4 +1,4 @@
-.PHONY: install discover download download-places match match-places geocode history dashboard test all
+.PHONY: install discover download download-places match match-places geocode history politics dashboard test all
 
 # Il pacchetto installato nel venv puo' puntare a un altro checkout: usare sempre src/ di questo progetto.
 export PYTHONPATH := src
@@ -26,6 +26,9 @@ geocode:
 
 history:
 	python scripts/05_merge_history.py
+
+politics:
+	python scripts/07_download_politics.py
 
 dashboard:
 	streamlit run app/dashboard.py

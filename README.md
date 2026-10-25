@@ -163,7 +163,7 @@ Fonti (URL e date di accesso in `config/sources.yml`; elenco dei file scaricati 
 | `site_kind`      | Fonte                                                                                          | Note |
 |------------------|------------------------------------------------------------------------------------------------|------|
 | `odonimo`        | ANNCSU                                                                                         | come sopra |
-| `scuola`         | MIM, Anagrafe scuole statali e paritarie (open data, ultimo anno scolastico disponibile)         | sedi e istituti di riferimento; senza coordinate; mancano Trento, Bolzano e Valle d'Aosta |
+| `scuola`         | MIM, Anagrafe scuole statali e paritarie (open data, ultimo anno scolastico disponibile)         | sedi e istituti di riferimento; senza coordinate. Trento, Bolzano e Valle d'Aosta non sono nel MIM: Trento da dati.trentino.it (PAT, CC0, istantanea 2014-09-10), Bolzano e Valle d'Aosta da elementi Wikidata (nessun elenco open data ufficiale trovato; copertura e denominatori approssimati), vedi `config/sources.yml` |
 | `universita`     | MUR/USTAT: elenco degli atenei e collegi universitari (ultimo anno); Wikidata e OSM per le intitolazioni | pochi nomi intitolati a persone del registro |
 | `luogo_pubblico` | Wikidata (proprietà P138 «intitolato a») e OpenStreetMap (biblioteche, municipi, ospedali, teatri, caserme, stadi, parchi, musei, aeroporti) | copertura parziale: non esiste un elenco nazionale di aule, sale o auditorium |
 
@@ -174,6 +174,15 @@ Regole di matching, le stesse degli odonimi con alcune cautele:
   o separate da « - »;
 - nome completo o alias esatto di una persona: accettato automaticamente;
 - solo cognome (se `allow_surname_only`), iniziale + cognome (`A. LOCATELLI`) e fuzzy: sempre in revisione manuale;
+- cognome come segmento a sé del nome (`PRIMARIA LOCATELLI`, `I.C. LOCATELLI-QUASIMODO`, `BORGORICCO-LOCATELLI`),
+  tolte le parole istituzionali (anche tedesche: `Grundschule`, `Mittelschule`, `Oberschule`...): metodo
+  `surname_in_name`, solo per scuole e università, sempre `needs_review`, anche se `allow_surname_only` è falso.
+  Non scatta se il cognome è accompagnato da nome, iniziale o titolo (`GIANNI LOCATELLI`, `DON ANTONIO LOCATELLI`,
+  `E. LOCATELLI`), se il nome è un indirizzo (`ZOGNO VIA LOCATELLI`), se due persone del registro hanno lo stesso
+  cognome, né per i cognomi in `SURNAME_IN_NAME_EXCLUDED` (`places.py`): omonimi di comuni o località (Caneva,
+  Bono, Scalea, Lessona...) o molto più noti/comuni (Gabelli, Martini, Antonelli, Giuliani...), valutati sui dati MIM;
+  una scuola intitolata al solo cognome non è attribuita al plesso dal nome dell'istituto di riferimento (l'istituto
+  è confrontato come riga a sé, senza duplicati);
 - nomi che iniziano con un prefisso stradale (`VIA ADUA`) sono indirizzi, non intitolazioni, e vengono scartati;
 - voci del registro dei luoghi e delle battaglie (Libia, Adua, ...): sempre in revisione manuale, perché
   una scuola in via Adua non è intitolata ad Adua;
@@ -187,6 +196,45 @@ Colonne aggiunte a `dashboard_data.csv`: `site_kind`, `site_detail` (tipo di scu
 (Wikidata), indicato in `coord_precision`. Per gli oggetti OSM il comune è dedotto dal tag `addr:city` o dal
 centroide comunale più vicino nella stessa regione (approssimato). Il denominatore dei `luogo_pubblico` conta gli
 oggetti OSM con nome delle categorie interrogate; le voci Wikidata non rientrano nel denominatore.
+
+### Controllo politico dei comuni e delle regioni
+
+```bash
+python scripts/07_download_politics.py     # oppure: make politics
+```
+
+Scarica dall'Anagrafe degli amministratori locali e regionali del Ministero dell'Interno
+(<https://dait.interno.gov.it/elezioni/open-data/amministratori-locali-e-regionali-in-carica>, file
+`maggiororgano.csv` e `ammreg.csv`, aggiornati al 24/08/2026) il sindaco in carica di ogni comune e le liste
+che lo sostengono, e produce:
+
+```text
+data/processed/municipality_politics.csv   # municipality_istat, municipality_name, region_name, mayor_list, party_family, election_date, source_url
+data/processed/region_politics.csv         # region_name, president, coalition, election_date, source_url
+```
+
+I file grezzi restano in `data/raw/politics/` (con `manifest.json`). Le liste del sindaco sono classificate in
+`party_family` (`centrodestra`, `centrosinistra`, `m5s`, `civica`, `altro`, `n.d.`) con le parole chiave
+documentate in `config/party_families.yml`; il testo originale resta in `mayor_list`. Regole in breve: la
+classificazione guarda tutte le liste collegate al sindaco; "civica" significa solo che nessun partito
+riconosciuto compare nel nome delle liste (una civica sostenuta di fatto da un partito resta "civica");
+centrodestra insieme a centrosinistra o M5S dà "altro"; M5S con il centrosinistra dà "centrosinistra";
+Azione, Italia Viva e partiti autonomisti (SVP, Union Valdôtaine) sono neutri. `n.d.` indica lista assente
+o "Lista non pervenuta" nel dato ufficiale (frequente in Sicilia, Friuli-Venezia Giulia, Valle d'Aosta e
+Trentino-Alto Adige). Il codice ISTAT è ricavato da nome e sigla di provincia (l'Anagrafe non riporta il
+codice catastale) ed è verificato sull'elenco ISTAT dei comuni. Per il join con `dashboard_data.csv` usare
+`municipality_istat` contro `municipality_istat_y` (o il codice Belfiore tradotto con l'elenco ISTAT):
+`municipality_istat_x` è obsoleto per alcuni comuni sardi.
+
+I presidenti di Campania e Marche non sono nel file regionale del Ministero e sono aggiunti a mano in
+`config/party_families.yml` con fonte; il Trentino-Alto Adige non ha un presidente di regione eletto direttamente
+e non compare in `region_politics.csv`.
+
+**Cautela metodologica.** I nomi delle vie sono stati assegnati per lo più decenni fa: chi governa oggi
+non è chi ha intitolato. Il controllo politico attuale non spiega le intitolazioni, al massimo descrive chi
+le mantiene; le liste civiche dei piccoli comuni nascondono spesso appartenenze di partito. Qualsiasi
+differenza tra gruppi è una correlazione, non un nesso causale, e dipende anche da dimensione dei comuni e
+geografia.
 
 ### 6. Dashboard locale
 

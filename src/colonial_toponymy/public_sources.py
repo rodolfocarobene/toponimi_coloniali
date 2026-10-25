@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pandas as pd
@@ -137,6 +138,105 @@ def load_schools(raw_dir: Path, muni: pd.DataFrame) -> tuple[pd.DataFrame, pd.Se
         entities[entities["is_sede"]].drop_duplicates("place_source_id").groupby("region_name").size()
     )
     return entities[ENTITY_COLUMNS], denominator.rename("total_kind_region")
+
+
+TN_SCHOOLS_FILE = "scuole_TN_istituzioni_scolastiche_*.xml"
+WD_AUTONOMOUS_SCHOOLS_FILE = "wikidata_schools_bz_ao.csv"
+
+
+def _autonomous_lookup(muni: pd.DataFrame, region_prefix: str) -> pd.DataFrame:
+    sub = muni[muni["region_name"].str.startswith(region_prefix)]
+    return sub.drop_duplicates("name_key").set_index("name_key")
+
+
+def _entity_row(source, sid, name, detail, comune_name, region, m) -> dict:
+    return {
+        "place_source": source, "place_source_id": sid, "name": name, "site_kind": "scuola",
+        "site_detail": detail, "name_alt": "",
+        "municipality_belfiore": m["municipality_belfiore"] if m is not None else "",
+        "municipality_istat": m["municipality_istat"] if m is not None else "",
+        "municipality_name": m["municipality_name"] if m is not None else comune_name,
+        "region_name": m["region_name"] if m is not None else region,
+        "lon": m["lon"] if m is not None else float("nan"),
+        "lat": m["lat"] if m is not None else float("nan"),
+        "coord_precision": "municipality_centroid" if m is not None and pd.notna(m["lon"]) else "",
+    }
+
+
+def _load_trento_schools(raw_dir: Path, muni: pd.DataFrame) -> list[dict]:
+    """Provincia autonoma di Trento, "Istituzioni scolastiche del Trentino" (dati.trentino.it, CC0, XML
+    snapshot of 2014-09-10): institutions and their teaching units (plessi)."""
+    path = latest_file(raw_dir, TN_SCHOOLS_FILE)
+    if path is None:
+        return []
+    root = ET.parse(path).getroot()
+    year = re.search(r"_(\d{4})", path.name)
+    source = f"PAT Trento istituzioni scolastiche {year.group(1) if year else ''}".strip()
+    region = "Trentino-Alto Adige/Südtirol"
+    lookup = _autonomous_lookup(muni, "Trentino")
+
+    def find_muni(text: str):
+        key = normalize_text(text)
+        for cand in [key, *[normalize_text(p) for p in re.split(r"[-/]", text)]]:
+            if cand in lookup.index:
+                return lookup.loc[cand]
+        return None
+
+    rows = []
+    for inst in root.findall("istituzione-scolastica"):
+        sede = inst.find("sede/comune")
+        inst_comune = sede.get("descrizione") if sede is not None else ""
+        kind = inst.find("tipologia-istituzione")
+        inst_kind = kind.get("descrizione") if kind is not None else ""
+        if inst_kind.startswith("Circolo di coordinamento"):
+            continue  # pedagogical coordination offices, not schools
+        units = inst.findall("unita-didattica")
+        rows.append(_entity_row(source, f"tn:{inst.get('codiceOrigine')}", inst.get("denominazione", ""),
+                                f"Istituzione scolastica ({inst_kind})", inst_comune.title(), region,
+                                find_muni(inst_comune) if inst_comune else None) | {"_unit": not units})
+        for unit in units:
+            c = unit.find("sede/comune")
+            comune = c.get("descrizione") if c is not None else inst_comune
+            ord_ = unit.find("ordine-scuola")
+            detail = (ord_.get("descrizione") if ord_ is not None else "Unità scolastica")
+            if inst.get("denominazione"):
+                detail += f"; istituto: {inst.get('denominazione')}"
+            rows.append(_entity_row(source, f"tn:{unit.get('codiceOrigine')}", unit.get("denominazione", ""),
+                                    detail, comune.title(), region, find_muni(comune) if comune else None)
+                        | {"_unit": True})
+    return rows
+
+
+def _load_wikidata_autonomous_schools(raw_dir: Path, muni: pd.DataFrame) -> list[dict]:
+    """Schools of Bolzano and Valle d'Aosta from Wikidata (CC0): bulk-imported items of the regional school
+    lists, found by municipality (P131 -> P635 ISTAT code 021*/007*). Names as in the source (it/de)."""
+    path = raw_dir / WD_AUTONOMOUS_SCHOOLS_FILE
+    if not path.exists():
+        return []
+    wd = pd.read_csv(path, dtype=str).fillna("").drop_duplicates("item")
+    by_istat = muni.drop_duplicates("municipality_istat").set_index("municipality_istat", drop=False)
+    rows = []
+    for _, r in wd.iterrows():
+        qid = r["item"].rsplit("/", 1)[-1]
+        if not r["itemLabel"] or r["itemLabel"] == qid or r["istat"] not in by_istat.index:
+            continue
+        m = by_istat.loc[r["istat"]]
+        region = m["region_name"]
+        rows.append(_entity_row("Wikidata scuole BZ/AO", f"wd:{qid}", r["itemLabel"],
+                                "Scuola (Wikidata)", m["municipality_name"], region, m) | {"_unit": True})
+    return rows
+
+
+def load_autonomous_schools(raw_dir: Path, muni: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Schools of the regions absent from the MIM registry: Trento (provincial open data), Bolzano and
+    Valle d'Aosta (Wikidata). Same columns as load_schools; the denominator counts teaching units
+    (institutions without units count once)."""
+    rows = _load_trento_schools(raw_dir, muni) + _load_wikidata_autonomous_schools(raw_dir, muni)
+    if not rows:
+        return _empty(), pd.Series(dtype=int)
+    df = pd.DataFrame(rows)
+    denominator = df[df["_unit"]].groupby("region_name").size().rename("total_kind_region")
+    return df[ENTITY_COLUMNS], denominator
 
 
 def _read_mur_csv(path: Path) -> pd.DataFrame:

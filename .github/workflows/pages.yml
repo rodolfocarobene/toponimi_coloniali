@@ -7,6 +7,8 @@ on:
       - "scripts/06_build_static_site.py"
       - "data/processed/dashboard_data.csv"
       - "data/processed/people_registry_used.csv"
+      - "data/processed/municipality_politics.csv"
+      - "data/processed/region_politics.csv"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

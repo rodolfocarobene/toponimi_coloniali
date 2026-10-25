@@ -3,6 +3,9 @@
 
 Sources (details and access dates in config/sources.yml):
   schools      MIM "Anagrafe scuole" (statali + paritarie), latest school year in the catalog
+  schools_autonomous  schools of Trento (open data of the Provincia autonoma, XML 2014-09-10) and of
+               Bolzano and Valle d'Aosta (Wikidata items imported from the regional lists): these
+               regions are not in the MIM registry
   universities MUR/USTAT "Strutture atenei" and "Collegi universitari", latest year
   wikidata     municipality centroids and items "named after" a registry person (SPARQL)
   osm          OpenStreetMap (Overpass) libraries, town halls, hospitals, theatres, barracks,
@@ -77,6 +80,27 @@ def download_schools(out: Path, manifest: dict, force: bool, cfg: dict) -> None:
             url = f"{base}/{latest}"
             save(dest, get(url, timeout=300).content, manifest, "MIM Anagrafe scuole", url)
             time.sleep(PAUSE)
+
+
+def download_schools_autonomous(out: Path, manifest: dict, force: bool, cfg: dict) -> None:
+    dest = out / "scuole_TN_istituzioni_scolastiche_2014.xml"
+    if wanted(dest, force):
+        url = cfg["trento_schools_xml"]
+        save(dest, get(url, timeout=120).content, manifest,
+             "Provincia autonoma di Trento, Istituzioni scolastiche del Trentino (CC0, snapshot 2014-09-10)", url)
+        time.sleep(PAUSE)
+    dest = out / "wikidata_schools_bz_ao.csv"
+    if wanted(dest, force):
+        # schools (and a few subclasses) located directly in a municipality of Bolzano (ISTAT 021*) or
+        # Valle d'Aosta (007*); labels in Italian, German as fallback
+        query = """SELECT ?item ?itemLabel ?istat WHERE {
+  ?m wdt:P635 ?istat . FILTER(STRSTARTS(?istat,"021") || STRSTARTS(?istat,"007"))
+  ?item wdt:P131 ?m ; wdt:P31 ?t .
+  VALUES ?t { wd:Q3914 wd:Q9842 wd:Q9826 wd:Q159334 wd:Q149566 wd:Q1244442 wd:Q2143781 wd:Q15936437 wd:Q1021290 }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "it,de". }
+}"""
+        save(dest, sparql(query, cfg["wikidata_sparql"]), manifest,
+             "Wikidata (scuole di Bolzano e Valle d'Aosta, P131 + P635)", cfg["wikidata_sparql"])
 
 
 def _latest_ckan_year(api: str, pattern: str) -> str:
@@ -230,7 +254,7 @@ def main():
     ap.add_argument("--sources-config", default="config/sources.yml")
     ap.add_argument("--registry", default="data/manual/people_registry.csv")
     ap.add_argument("--places-registry", default="data/manual/place_registry.csv")
-    ap.add_argument("--only", nargs="+", choices=["schools", "universities", "wikidata", "osm"])
+    ap.add_argument("--only", nargs="+", choices=["schools", "schools_autonomous", "universities", "wikidata", "osm"])
     ap.add_argument("--force", action="store_true", help="Download again even if the file already exists.")
     args = ap.parse_args()
 
@@ -240,11 +264,14 @@ def main():
     manifest_path = out / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     MANIFEST_REF.update(manifest)
-    todo = set(args.only or ["schools", "universities", "wikidata", "osm"])
+    todo = set(args.only or ["schools", "schools_autonomous", "universities", "wikidata", "osm"])
 
     if "schools" in todo:
         print("MIM Anagrafe scuole")
         download_schools(out, manifest, args.force, cfg)
+    if "schools_autonomous" in todo:
+        print("Scuole di Trento, Bolzano, Valle d'Aosta")
+        download_schools_autonomous(out, manifest, args.force, cfg)
     if "universities" in todo:
         print("MUR USTAT atenei e collegi")
         download_universities(out, manifest, args.force, cfg)
@@ -260,7 +287,10 @@ def main():
             places["entity_type"] = "place"
             frames.append(places)
         download_osm(out, manifest, args.force, cfg, overpass_regex(pd.concat(frames, ignore_index=True)))
-    manifest = {**MANIFEST_REF, **manifest}
+    # Re-read the manifest from disk and add only this run's entries (another run may have updated it).
+    on_disk = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    new = {k: v for k, v in manifest.items() if MANIFEST_REF.get(k) != v}
+    manifest = {**MANIFEST_REF, **on_disk, **new}
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

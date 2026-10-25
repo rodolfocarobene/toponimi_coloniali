@@ -1,0 +1,20 @@
+region_name,president,coalition,election_date,source_url
+Abruzzo,Marco Marsilio,centrodestra,2024-03-10,https://dait.interno.gov.it/documenti/ammreg.csv
+Basilicata,Vito Bardi,centrodestra,2024-04-21,https://dait.interno.gov.it/documenti/ammreg.csv
+Calabria,Roberto Occhiuto,centrodestra,2025-10-05,https://dait.interno.gov.it/documenti/ammreg.csv
+Campania,Roberto Fico,centrosinistra,2025-11-23,https://it.wikipedia.org/wiki/Elezioni_regionali_in_Campania_del_2025
+Emilia-Romagna,Michele De Pascale,centrosinistra,2024-11-17,https://dait.interno.gov.it/documenti/ammreg.csv
+Friuli-Venezia Giulia,Massimiliano Fedriga,centrodestra,2023-04-02,https://it.wikipedia.org/wiki/Elezioni_regionali_in_Friuli-Venezia_Giulia_del_2023
+Lazio,Francesco Rocca,centrodestra,2023-02-12,https://it.wikipedia.org/wiki/Elezioni_regionali_nel_Lazio_del_2023
+Liguria,Marco Bucci,centrodestra,2024-10-27,https://dait.interno.gov.it/documenti/ammreg.csv
+Lombardia,Attilio Fontana,centrodestra,2023-02-12,https://dait.interno.gov.it/documenti/ammreg.csv
+Marche,Francesco Acquaroli,centrodestra,2025-09-28,https://it.wikipedia.org/wiki/Elezioni_regionali_nelle_Marche_del_2025
+Molise,Francesco Roberti,centrodestra,2023-06-25,https://dait.interno.gov.it/documenti/ammreg.csv
+Piemonte,Alberto Cirio,centrodestra,2024-06-09,https://dait.interno.gov.it/documenti/ammreg.csv
+Puglia,Antonio Decaro,centrosinistra,2025-11-23,https://dait.interno.gov.it/documenti/ammreg.csv
+Sardegna,Alessandra Todde,centrosinistra,2024-02-25,https://dait.interno.gov.it/documenti/ammreg.csv
+Sicilia,Renato Schifani,centrodestra,2022-09-25,https://it.wikipedia.org/wiki/Elezioni_regionali_in_Sicilia_del_2022
+Toscana,Eugenio Giani,centrosinistra,2025-10-12,https://dait.interno.gov.it/documenti/ammreg.csv
+Umbria,Stefania Proietti,centrosinistra,2024-11-17,https://dait.interno.gov.it/documenti/ammreg.csv
+Valle d'Aosta/Vallée d'Aoste,Renzo Testolin,altro,2025-09-28,https://it.wikipedia.org/wiki/Elezioni_regionali_in_Valle_d%27Aosta_del_2025
+Veneto,Alberto Stefani,centrodestra,2025-11-23,https://dait.interno.gov.it/documenti/ammreg.csv
