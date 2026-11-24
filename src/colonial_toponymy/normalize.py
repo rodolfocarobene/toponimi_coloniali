@@ -4,7 +4,7 @@ import re
 import unicodedata
 
 ROAD_PREFIXES = {
-    "via", "viale", "piazza", "piazzale", "corso", "largo", "vicolo", "strada",
+    "via", "viale", "piazza", "piazzale", "corso", "largo", "vicolo", "vico", "strada",
     "contrada", "salita", "discesa", "lungomare", "lungarno", "rotonda", "borgo",
     "galleria", "passaggio", "passeggiata", "riva", "calle", "campo", "fondamenta",
 }

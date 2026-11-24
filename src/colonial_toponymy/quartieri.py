@@ -12,7 +12,10 @@ Three kinds of rows share site_kind="quartiere":
 """
 from __future__ import annotations
 
+import io
 import json
+import re
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +24,7 @@ import pandas as pd
 from .matcher import build_alias_records, match_odonimo
 from .normalize import HONORIFICS, ROAD_PREFIXES, _strip_leading_article, normalize_text
 from .places import EXTRA_TITLES, name_variants
-from .public_sources import ENTITY_COLUMNS, OSM_REGIONS, assign_nearest_municipality
+from .public_sources import ENTITY_COLUMNS, OSM_REGIONS, _attach_municipality, assign_nearest_municipality
 
 CLUSTER_PERSON_ID = "cluster"
 CLUSTER_CANONICAL_NAME = "Cluster di odonimi coloniali"
@@ -128,6 +131,163 @@ def load_osm_quartieri(raw_dir: Path, muni: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values("_point", ascending=False, kind="stable")
     df = df[~df.duplicated(["municipality_istat", "_key"])]
     return df.drop(columns=["_point", "_key"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------------------------------------
+# ISTAT localities and official city lists (see scripts/02c_download_quartieri.py)
+# ---------------------------------------------------------------------------------------------------------
+
+ISTAT_LOCALITA_ZIP = "istat/LocalitaPuntuali_21.zip"
+ISTAT_REGION_CODES = {
+    1: "Piemonte", 2: "Valle d'Aosta/Vallée d'Aoste", 3: "Lombardia", 4: "Trentino-Alto Adige/Südtirol",
+    5: "Veneto", 6: "Friuli-Venezia Giulia", 7: "Liguria", 8: "Emilia-Romagna", 9: "Toscana", 10: "Umbria",
+    11: "Marche", 12: "Lazio", 13: "Abruzzo", 14: "Molise", 15: "Campania", 16: "Puglia", 17: "Basilicata",
+    18: "Calabria", 19: "Sicilia", 20: "Sardegna",
+}
+# TIPO_LOC of the ISTAT census: 1 centro abitato, 2 nucleo abitato, 3 localita produttiva, 4 case sparse
+ISTAT_LOCALITA_TYPES = {1: "centro abitato", 2: "nucleo abitato", 3: "localita produttiva"}
+
+
+def utm32n_to_wgs84(easting, northing) -> tuple[np.ndarray, np.ndarray]:
+    """Inverse transverse Mercator (Krueger series) for the ISTAT single-zone UTM 32N grid (ETRF2000 ~ WGS84).
+
+    ISTAT uses zone 32N for the whole of Italy, so eastings reach 1.3 million m in Puglia: the series is
+    accurate to well under a metre at that distance. Returns (lon, lat) in degrees."""
+    e, n_ = np.asarray(easting, dtype=float), np.asarray(northing, dtype=float)
+    a, f, k0 = 6378137.0, 1 / 298.257223563, 0.9996
+    n = f / (2 - f)
+    big_a = a / (1 + n) * (1 + n**2 / 4 + n**4 / 64)
+    beta = [n / 2 - 2 * n**2 / 3 + 37 * n**3 / 96 - n**4 / 360, n**2 / 48 + n**3 / 15 - 437 * n**4 / 1440,
+            17 * n**3 / 480 - 37 * n**4 / 840, 4397 * n**4 / 161280]
+    delta = [2 * n - 2 * n**2 / 3 - 2 * n**3 + 116 * n**4 / 45, 7 * n**2 / 3 - 8 * n**3 / 5 - 227 * n**4 / 45,
+             56 * n**3 / 15 - 136 * n**4 / 35, 4279 * n**4 / 630]
+    xi, eta = n_ / (k0 * big_a), (e - 500000.0) / (k0 * big_a)
+    xi_p, eta_p = xi.copy(), eta.copy()
+    for j, b in enumerate(beta, start=1):
+        xi_p = xi_p - b * np.sin(2 * j * xi) * np.cosh(2 * j * eta)
+        eta_p = eta_p - b * np.cos(2 * j * xi) * np.sinh(2 * j * eta)
+    chi = np.arcsin(np.sin(xi_p) / np.cosh(eta_p))
+    lat = chi + sum(d * np.sin(2 * j * chi) for j, d in enumerate(delta, start=1))
+    lon = np.radians(9.0) + np.arctan2(np.sinh(eta_p), np.cos(xi_p))
+    return np.degrees(lon), np.degrees(lat)
+
+
+def load_istat_localita(raw_dir: Path, muni: pd.DataFrame) -> pd.DataFrame:
+    """Named localities of the ISTAT 2021 census (centri, nuclei abitati, localita produttive).
+
+    Source: LocalitaPuntuali_21.zip (basi territoriali ISTAT), one point per locality, UTM 32N coordinates.
+    "Case sparse" (TIPO_LOC 4) are not names and are skipped. PRO_COM codes of 2021 that no longer exist in the
+    current ISTAT list (merged or renumbered municipalities) get the nearest municipality of the region."""
+    path = raw_dir / ISTAT_LOCALITA_ZIP
+    if not path.exists():
+        return pd.DataFrame(columns=ENTITY_COLUMNS)
+    with zipfile.ZipFile(path) as z:
+        member = next(n for n in z.namelist() if n.lower().endswith(".csv"))
+        raw = pd.read_csv(io.BytesIO(z.read(member)), sep="\t", encoding="cp1252", dtype=str, decimal=",")
+    raw["TIPO_LOC"] = pd.to_numeric(raw["TIPO_LOC"], errors="coerce")
+    raw = raw[raw["TIPO_LOC"].isin(ISTAT_LOCALITA_TYPES) & raw["NOME"].notna()].copy()
+    lon, lat = utm32n_to_wgs84(raw["POINT_X"].str.replace(",", ".").astype(float),
+                               raw["POINT_Y"].str.replace(",", ".").astype(float))
+    df = pd.DataFrame({
+        "place_source": "ISTAT, località abitate (basi territoriali 2021)", "place_source_id": raw["LOC_ID"].values,
+        "name": raw["NOME"].str.strip().values, "site_kind": "quartiere",
+        "site_detail": ("Località ISTAT (" + raw["TIPO_LOC"].map(ISTAT_LOCALITA_TYPES) + ")").values,
+        "name_alt": "", "municipality_belfiore": "", "municipality_istat": raw["PRO_COM"].str.zfill(6).values,
+        "municipality_name": "", "region_name": raw["COD_REG"].astype(int).map(ISTAT_REGION_CODES).values,
+        "lon": lon, "lat": lat, "coord_precision": "point",
+    })
+    known = df["municipality_istat"].isin(set(muni["municipality_istat"]))
+    df = pd.concat([_attach_municipality(df[known], muni, on="istat"),
+                    assign_nearest_municipality(df[~known].assign(municipality_istat=""), muni)], ignore_index=True)
+    df["lon"], df["lat"] = df["lon"].astype(float), df["lat"].astype(float)
+    return df[ENTITY_COLUMNS].reset_index(drop=True)
+
+
+def _polygon_centroid(geometry: dict) -> tuple[float, float]:
+    """Area-weighted centroid of the largest outer ring of a (Multi)Polygon in lon/lat (planar, display only)."""
+    rings = [geometry["coordinates"][0]] if geometry["type"] == "Polygon" else [p[0] for p in geometry["coordinates"]]
+    best, best_area = None, -1.0
+    for ring in rings:
+        pts = np.asarray(ring, dtype=float)
+        x, y = pts[:, 0], pts[:, 1]
+        cross = x[:-1] * y[1:] - x[1:] * y[:-1]
+        area = cross.sum() / 2
+        if abs(area) > best_area and area != 0:
+            best_area = abs(area)
+            best = (float(((x[:-1] + x[1:]) * cross).sum() / (6 * area)), float(((y[:-1] + y[1:]) * cross).sum() / (6 * area)))
+    return best if best else (float(np.mean([c[0] for c in rings[0]])), float(np.mean([c[1] for c in rings[0]])))
+
+
+def _display_name(name: str) -> str:
+    """'MAGGIORE - MUSOCCO' -> 'Maggiore - Musocco' (some official lists are in capitals)."""
+    if name != name.upper():
+        return name.strip()
+    return re.sub(r"(?<=\w)'(\w)", lambda m: "'" + m.group(1).lower(), name.strip().title())
+
+
+def load_city_lists(raw_dir: Path, muni: pd.DataFrame) -> pd.DataFrame:
+    """Official neighbourhood lists of the cities that publish open data (data/raw/quartieri/citta/).
+
+    Milano: NIL (Nuclei d'Identita Locale) in force (PGT 2030) and the obsolete 2012 list, polygons -> centroid.
+    Bologna: quartieri, zone, aree statistiche and zone di prossimita (Opendatasoft, centre given).
+    Torino: zone statistiche (centre in Gauss-Boaga: the municipality centroid is used instead).
+    Each file is optional. One row per file entry, deduplicated later by comune and normalized name."""
+    d = raw_dir / "citta"
+    rows: list[dict] = []
+
+    def add(city, source, kind, name, lon=None, lat=None):
+        if name and str(name).strip():
+            rows.append({"city": city, "place_source": source, "name": _display_name(str(name)), "site_detail": kind,
+                         "lon": lon, "lat": lat})
+
+    for fname, kind, src in [
+        ("milano_nil.geojson", "NIL vigente, PGT 2030", "Comune di Milano, dati aperti (CC BY)"),
+        ("milano_nil_obsoleti_pgt2012.geojson", "NIL obsoleto, PGT 2012", "Comune di Milano, dati aperti (CC BY)"),
+    ]:
+        if (d / fname).exists():
+            for f in json.loads((d / fname).read_text(encoding="utf-8"))["features"]:
+                lon, lat = _polygon_centroid(f["geometry"])
+                add("Milano", src, f"Elenco ufficiale: {kind}", f["properties"].get("NIL"), lon, lat)
+    bologna = [
+        ("bologna_quartieri-di-bologna.json", "quartiere", "quartiere"),
+        ("bologna_zone-del-comune-di-bologna.json", "nomezona", "zona"),
+        ("bologna_aree-statistiche.json", "area_statistica", "area statistica"),
+        ("bologna_zone_urbanistiche.json", "zona_prossimita", "zona di prossimità"),
+    ]
+    for fname, field, kind in bologna:
+        if (d / fname).exists():
+            for r in json.loads((d / fname).read_text(encoding="utf-8")):
+                pt = r.get("geo_point_2d") or {}
+                add("Bologna", "Comune di Bologna, open data (CC BY 4.0)", f"Elenco ufficiale: {kind}", r.get(field),
+                    pt.get("lon"), pt.get("lat"))
+    if (d / "torino_zone_statistiche_csv.zip").exists():
+        with zipfile.ZipFile(d / "torino_zone_statistiche_csv.zip") as z:
+            member = next(n for n in z.namelist() if n.lower().endswith(".csv"))
+            zs = pd.read_csv(io.BytesIO(z.read(member)), sep=";", encoding="cp1252", dtype=str, usecols=["DENOM"])
+        for name in zs["DENOM"]:
+            add("Torino", "Città di Torino, dati aperti (CC BY)", "Elenco ufficiale: zona statistica", name)
+    if not rows:
+        return pd.DataFrame(columns=ENTITY_COLUMNS)
+    df = pd.DataFrame(rows)
+    key = muni.drop_duplicates("name_key").set_index("name_key")
+    df["_nk"] = df["city"].map(normalize_text)
+    df = df[df["_nk"].isin(key.index)].copy()
+    df["municipality_istat"] = df["_nk"].map(key["municipality_istat"])
+    df["place_source_id"] = df["city"].str.lower() + ":" + df["name"]
+    df["site_kind"], df["name_alt"], df["coord_precision"] = "quartiere", "", "centroid"
+    df["municipality_belfiore"], df["municipality_name"], df["region_name"] = "", "", ""
+    df["lon"], df["lat"] = pd.to_numeric(df["lon"]), pd.to_numeric(df["lat"])
+    df = _attach_municipality(df, muni, on="istat")
+    return df[ENTITY_COLUMNS]
+
+
+def combine_named_sources(*frames: pd.DataFrame) -> pd.DataFrame:
+    """Concatenate named-area sources, earlier frames win: one row per (municipality_istat, normalized name)."""
+    df = pd.concat([f for f in frames if not f.empty], ignore_index=True, sort=False)
+    df["_key"] = df["name"].map(normalize_quartiere_name)
+    df = df[df["_key"] != ""]
+    df = df[~df.duplicated(["municipality_istat", "_key"])]
+    return df.drop(columns="_key").reset_index(drop=True)
 
 
 def region_totals(entities: pd.DataFrame) -> pd.Series:

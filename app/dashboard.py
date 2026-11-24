@@ -148,6 +148,23 @@ df["_s"] = (df["odonimo"] + " " + df["municipality_name"] + " " + df["canonical_
 base_df = df.copy()
 is_other = base_df["role_category"] == "other_expansion"
 OTHER_NAMES = set(base_df.loc[is_other, "canonical_name"])
+_terr_of = lambda s: {t.strip() for t in str(s).split(";") if t.strip()}
+OTHER_TERRS = set().union(*base_df.loc[is_other, "territories"].map(_terr_of)) - set().union(*base_df.loc[~is_other, "territories"].map(_terr_of))
+OFF_NOTE = " (esclusi, attiva l'opzione)"
+
+
+def other_on_pick(key: str, other_values: set) -> None:
+    """Selezionare una voce degli altri territori accende l'opzione."""
+    if set(st.session_state.get(key, [])) & other_values:
+        st.session_state["incl_other"] = True
+
+
+def other_off_clean() -> None:
+    """Spegnendo l'opzione si tolgono le selezioni che puntano solo agli altri territori."""
+    if not st.session_state.get("incl_other"):
+        st.session_state["role_filter"] = [v for v in st.session_state.get("role_filter", []) if v != "other_expansion"]
+        st.session_state["territory_filter"] = [v for v in st.session_state.get("territory_filter", []) if v not in OTHER_TERRS]
+        st.session_state["include_filter"] = [v for v in st.session_state.get("include_filter", []) if v not in OTHER_NAMES]
 # Politica: solo odonimi, senza "altri territori" e senza quartieri
 pol_df = base_df[~is_other & (base_df["site_kind"] != "quartiere")]
 
@@ -157,9 +174,6 @@ with tab_explore:
     st.text_input("Cerca nome, comune o riferimento", placeholder="Cerca nome, comune o riferimento…", key="q_filter")
     st.radio("Stato di verifica", REVIEW_OPTS, horizontal=True, key="review_filter",
              help="«Da verificare»: corrispondenze meno sicure (nomi simili, solo cognome non autorizzato) non ancora confermate.")
-    st.checkbox("Includi altri territori (Istria, Dalmazia, Dodecaneso, Albania)", key="incl_other",
-                help="Questi nomi riflettono soprattutto la memoria irredentista, della Grande Guerra e dell'esodo giuliano-dalmata: non sono colonie d'oltremare e sono esclusi da mappa, conteggi e grafici se non li includi.")
-    st.caption("Questi nomi riflettono soprattutto la memoria irredentista, della Grande Guerra e dell'esodo giuliano-dalmata: non sono colonie d'oltremare.")
     status_ph = st.empty()
     if st.session_state.get("_applied_ref"):
         st.info(f"Filtro applicato dalla scheda: {st.session_state.pop('_applied_ref')}.")
@@ -181,9 +195,17 @@ with st.sidebar:
     selected = st.multiselect("Mostra solo questi riferimenti", options, key="include_filter")
     excluded = st.multiselect("Escludi riferimenti", options, key="exclude_filter")
     selected_regions = st.multiselect("Regioni", sorted(x for x in opt_df["region_name"].unique() if x), key="region_filter")
-    selected_roles = st.multiselect("Categorie", sorted(x for x in opt_df["role_category"].unique() if x), format_func=role_label, key="role_filter")
-    terr = sorted({t.strip() for s in opt_df["territories"] for t in str(s).split(";") if t.strip()})
-    selected_terr = st.multiselect("Territori coloniali", terr, format_func=territory_label, key="territory_filter")
+    incl_other = st.toggle("Includi altri territori (Istria, Dalmazia, Dodecaneso, Albania)", key="incl_other", on_change=other_off_clean,
+                           help="Memoria irredentista e dell'esodo giuliano-dalmata: non sono colonie d'oltremare e sono esclusi da mappa, conteggi e grafici se l'opzione è spenta.")
+    st.caption("Attivo: gli altri territori compaiono nei risultati." if incl_other else "Spento: gli altri territori sono esclusi da mappa, conteggi e grafici.")
+    all_roles = sorted(x for x in base_df["role_category"].unique() if x)
+    role_fmt = (lambda v: role_label(v) + (OFF_NOTE if v == "other_expansion" and not incl_other else "")) 
+    selected_roles = st.multiselect("Categorie" if incl_other else "Categorie (esclusi altri territori)", all_roles, format_func=role_fmt, key="role_filter",
+                                    on_change=other_on_pick, args=("role_filter", {"other_expansion"}))
+    terr = sorted(set().union(*base_df["territories"].map(_terr_of)))
+    terr_fmt = (lambda v: territory_label(v) + (OFF_NOTE if v in OTHER_TERRS and not incl_other else ""))
+    selected_terr = st.multiselect("Territori coloniali" if incl_other else "Territori coloniali (esclusi altri territori)", terr, format_func=terr_fmt, key="territory_filter",
+                                   on_change=other_on_pick, args=("territory_filter", OTHER_TERRS))
 
     if selected_kinds: df = df[df["site_kind"].isin(selected_kinds)]
     if selected_entities: df = df[df["entity_type"].isin(selected_entities)]
@@ -197,6 +219,21 @@ with st.sidebar:
     pending = int((~df["_ok"]).sum())
     if st.session_state.get("review_filter", REVIEW_OPTS[0]) == REVIEW_OPTS[0]:
         df = df[df["_ok"]]
+    n_excluded = 0
+    if not incl_other:
+        ex = base_df[is_other]
+        if selected_kinds: ex = ex[ex["site_kind"].isin(selected_kinds)]
+        if selected_entities: ex = ex[ex["entity_type"].isin(selected_entities)]
+        if selected: ex = ex[ex["canonical_name"].isin(selected)]
+        if excluded: ex = ex[~ex["canonical_name"].isin(excluded)]
+        if selected_regions: ex = ex[ex["region_name"].isin(selected_regions)]
+        if selected_roles: ex = ex[ex["role_category"].isin(selected_roles)]
+        if selected_terr: ex = ex[ex["territories"].map(lambda s: any(t in str(s).split(";") for t in selected_terr))]
+        for token in norm(st.session_state.get("q_filter", "")).split():
+            ex = ex[ex["_s"].str.contains(token, regex=False)]
+        if st.session_state.get("review_filter", REVIEW_OPTS[0]) == REVIEW_OPTS[0]:
+            ex = ex[ex["_ok"]]
+        n_excluded = len(ex)
 
     snap = Path("data/processed/people_registry_used.csv")
     if snap.exists(): st.download_button("↓ Scarica il registro usato nel matching", snap.read_bytes(), "registro_matching_utilizzato.csv", "text/csv", use_container_width=True)
@@ -208,6 +245,9 @@ elif pending:
     status_ph.info(f"{len(df):,} risultati, di cui {pending:,} da verificare.")
 else:
     status_ph.caption(f"{len(df):,} risultati.")
+if n_excluded:
+  with tab_explore:
+    st.caption(f"{n_excluded:,} intitolazioni di altri territori escluse: attiva «Includi altri territori» nei filtri a sinistra.")
 
 with tab_explore:
     c1, c2, c3, c4 = st.columns(4)

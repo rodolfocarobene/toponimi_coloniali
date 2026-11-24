@@ -1,15 +1,21 @@
+import io
 import json
+import zipfile
 
 import pandas as pd
 import pytest
 
 from colonial_toponymy.quartieri import (
+    combine_named_sources,
     detect_street_clusters,
+    load_city_lists,
+    load_istat_localita,
     load_osm_quartieri,
     load_themed_districts,
     match_quartieri_dataframe,
     nearest_neighbourhood,
     normalize_quartiere_name,
+    utm32n_to_wgs84,
 )
 
 
@@ -121,3 +127,61 @@ def test_cluster_radius_splits_long_chain():
     clusters = detect_street_clusters(pd.DataFrame(rows), min_streets=5, radius_m=600)
     assert len(clusters) >= 1
     assert all(c["radius_m"] <= 600 for c in clusters)
+
+
+def muni_frame():
+    return pd.DataFrame({
+        "municipality_belfiore": ["F205", "A794"], "municipality_istat": ["015146", "037006"],
+        "municipality_name": ["Milano", "Bologna"], "region_name": ["Lombardia", "Emilia-Romagna"],
+        "lon": [9.19, 11.34], "lat": [45.46, 44.49], "name_key": ["milano", "bologna"],
+    })
+
+
+def test_utm32n_single_zone_conversion_matches_known_points():
+    # ISTAT uses UTM 32N for the whole country: Lecce is far east of the zone (easting > 1,000,000 m)
+    lon, lat = utm32n_to_wgs84([1279438.466, 403108.773], [4507699.639, 5023879.728])
+    assert (lon[0], lat[0]) == pytest.approx((18.1726, 40.3546), abs=1e-3)
+    assert (lon[1], lat[1]) == pytest.approx((7.7628, 45.3617), abs=1e-3)
+
+
+def test_load_istat_localita_skips_case_sparse_and_assigns_comune(tmp_path):
+    header = "COD_REG\tCOD_UTS\tPRO_COM\tLOC_ID\tLOC\tTIPO_LOC\tNOME\tCENTRO_CL\tALTITUDINE\tPOP21\tFAM21\tABI21\tEDI21\tPOINT_X\tPOINT_Y"
+    rows = [
+        "3\t215\t15146\t1\t1\t2\tVillaggio Dalmazia\t0\t120\t10\t5\t6\t3\t514000,5\t5034000,2",
+        "3\t215\t15146\t2\t2\t4\tCase sparse\t0\t120\t10\t5\t6\t3\t514100,5\t5034100,2",
+        "8\t237\t37006\t3\t3\t1\tCirenaica\t1\t50\t10\t5\t6\t3\t686000,0\t4930000,0",
+    ]
+    (tmp_path / "istat").mkdir()
+    with zipfile.ZipFile(tmp_path / "istat" / "LocalitaPuntuali_21.zip", "w") as z:
+        z.writestr("Localita/Localita_2021_Point.csv", "\r\n".join([header, *rows]).encode("cp1252"))
+    out = load_istat_localita(tmp_path, muni_frame())
+    assert sorted(out["name"]) == ["Cirenaica", "Villaggio Dalmazia"]
+    row = out[out["name"] == "Villaggio Dalmazia"].iloc[0]
+    assert (row["municipality_name"], row["region_name"]) == ("Milano", "Lombardia")
+    assert row["site_detail"] == "Località ISTAT (nucleo abitato)"
+    assert 9.0 < row["lon"] < 9.5 and 45.0 < row["lat"] < 46.0
+
+
+def test_load_city_lists_milano_nil_and_bologna_zone(tmp_path):
+    city = tmp_path / "citta"
+    city.mkdir()
+    square = {"type": "Polygon", "coordinates": [[[9.0, 45.0], [9.2, 45.0], [9.2, 45.2], [9.0, 45.2], [9.0, 45.0]]]}
+    (city / "milano_nil.geojson").write_text(json.dumps(
+        {"features": [{"geometry": square, "properties": {"NIL": "MACIACHINI - MAGGIOLINA"}}]}))
+    (city / "bologna_aree-statistiche.json").write_text(json.dumps(
+        [{"area_statistica": "CIRENAICA", "geo_point_2d": {"lon": 11.36, "lat": 44.49}}]))
+    out = load_city_lists(tmp_path, muni_frame())
+    assert set(out["name"]) == {"Maciachini - Maggiolina", "Cirenaica"}
+    milano = out[out["municipality_name"] == "Milano"].iloc[0]
+    assert (milano["lon"], milano["lat"]) == pytest.approx((9.1, 45.1))
+    assert out[out["municipality_name"] == "Bologna"].iloc[0]["site_detail"] == "Elenco ufficiale: area statistica"
+
+
+def test_combine_named_sources_prefers_first_source_per_comune_and_name():
+    def frame(source, name, istat="015146"):
+        return pd.DataFrame([{"place_source": source, "name": name, "municipality_istat": istat}])
+
+    out = combine_named_sources(frame("city", "Istria"), frame("osm", "Quartiere Istria"),
+                                frame("istat", "Istria", istat="037006"), frame("istat", "Istria"))
+    assert list(out["place_source"]) == ["city", "istat"]  # same name, other comune, is kept
+    assert list(out["municipality_istat"]) == ["015146", "037006"]

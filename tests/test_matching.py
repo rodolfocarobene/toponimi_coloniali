@@ -83,6 +83,7 @@ def test_articolo_dopo_prefisso_stradale():
     assert normalize_odonimo("VIA DEI MILLE") == "mille"
     # Senza prefisso stradale l'articolo resta: "Della Porta" e' un cognome.
     assert normalize_odonimo("DELLA PORTA") == "della porta"
+    assert normalize_odonimo("VICO ZARA") == "zara"
 
 
 def test_apostrofo_come_accento_finale():

@@ -203,15 +203,31 @@ Il tipo `quartiere` ha tre origini, tutte prodotte da `03c_match_quartieri.py` (
 e prima di `05_merge_history.py`):
 
 ```bash
-python scripts/02c_download_quartieri.py      # oppure: make download-quartieri
+python scripts/02c_download_quartieri.py      # oppure: make download-quartieri (--skip-osm, --skip-extra)
 python scripts/03c_match_quartieri.py         # oppure: make match-quartieri
 python scripts/05_merge_history.py
 ```
 
-1. **Quartieri con nome** (`match_method` come per i luoghi pubblici). Fonte: OpenStreetMap via Overpass (ODbL),
-   per regione, `place=quarter|neighbourhood|suburb` e confini amministrativi di livello 9 e 10 con nome (solo centro
-   e tag), in `data/raw/quartieri/` con `manifest.json` (URL, data, dimensione). Wikidata non è usato perché i suoi
-   quartieri sono un sottoinsieme di quelli OSM. Le parole generiche iniziali (`Quartiere`, `Rione`, `Villaggio`,
+1. **Quartieri con nome** (`match_method` come per i luoghi pubblici). Tre fonti, in `data/raw/quartieri/` con
+   `manifest.json` (URL, data, dimensione). Wikidata non è usato perché i suoi quartieri sono un sottoinsieme di
+   quelli OSM.
+   - OpenStreetMap via Overpass (ODbL), per regione, `place=quarter|neighbourhood|suburb` e confini amministrativi di
+     livello 9 e 10 con nome (solo centro e tag).
+   - ISTAT, basi territoriali 2021, `LocalitaPuntuali_21.zip` (`istat/`): circa 61 mila località abitate (centri,
+     nuclei abitati, località produttive, le «case sparse» sono scartate). `site_detail` è «Località ISTAT (tipo)».
+     Le coordinate sono UTM 32N (zona unica per tutta l'Italia) convertite in WGS84 e il comune viene dal codice
+     `PRO_COM`. I codici del 2021 non più presenti nell'elenco comuni attuale (fusioni, riordino sardo) ricevono il
+     comune più vicino della regione. Licenza CC BY 4.0, citare ISTAT.
+   - Elenchi ufficiali dei comuni (`citta/`, dati aperti CC BY): Milano (NIL vigenti del PGT 2030 e NIL obsoleti del
+     PGT 2012, centroide del poligono), Bologna (quartieri, zone, aree statistiche e zone di prossimità, centro
+     fornito dalla fonte), Torino (zone statistiche, le coordinate del CSV sono in Gauss-Boaga e non sono usate: si usa il centroide comunale).
+     Roma, Napoli, Genova, Firenze e Palermo non hanno un elenco scaricabile in modo automatico e semplice: per loro
+     restano OpenStreetMap e le località ISTAT.
+
+   Le tre fonti sono unite in 03c con priorità elenco ufficiale, OSM, ISTAT e una sola riga per coppia comune e nome
+   normalizzato. `total_kind_region` conta le aree con nome distinte per regione su tutte e tre le fonti, quindi
+   include le località ISTAT e non è confrontabile con il valore calcolato solo su OSM. Il nome del quartiere dato
+   ai cluster rilevati viene solo da OSM e dagli elenchi ufficiali con coordinate proprie. Le parole generiche iniziali (`Quartiere`, `Rione`, `Villaggio`,
    `Zona`, `Borgo`...) sono rimosse prima del confronto, un nome che inizia con un prefisso stradale è scartato.
    Persona con nome completo o alias esatto: `accepted_auto`. Luoghi e battaglie del registro (Libia, Cirenaica,
    Istria...): sempre `needs_review`, perché un quartiere con quel nome può essere un toponimo locale e non

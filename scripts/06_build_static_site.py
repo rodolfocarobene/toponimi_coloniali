@@ -151,7 +151,8 @@ tbody tr:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ok-tag{color:var(--muted);font-size:.74rem}
 .empty{padding:22px;text-align:center;color:var(--muted);font-size:.9rem}
 .empty button{margin-left:6px}
-.opt-toggle{display:flex;gap:8px;align-items:center;font-size:.85rem;font-weight:650;margin:12px 0 0;cursor:pointer} .opt-toggle input{width:17px;height:17px;accent-color:var(--accent2)} .opt-note{margin:2px 0 0 25px;font-size:.78rem;color:var(--muted);max-width:90ch;line-height:1.4}
+.filter-other{padding:10px 11px;border:1px solid var(--line,#d8d8d8);border-radius:10px;margin:2px 0 10px} .filter-other .filter-label{margin-bottom:4px} .picker-option.off{opacity:.55;font-style:italic}
+.opt-toggle{display:flex;gap:8px;align-items:flex-start;font-size:.85rem;font-weight:650;margin:4px 0 0;cursor:pointer} .opt-toggle input{width:17px;height:17px;accent-color:var(--accent2)} .opt-note{margin:4px 0 0 25px;font-size:.78rem;color:var(--muted);line-height:1.4}
 .callout{background:var(--note-bg);border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:.88rem;line-height:1.55;max-width:90ch} .callout b{color:var(--ink)}
 .ref-tools{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:14px}
 .ref-tools .searchbox{flex:1 1 320px;max-width:520px} .ref-tools .searchbox input{font-size:1rem;padding:12px 42px 12px 44px}
@@ -197,6 +198,9 @@ footer{max-width:1500px;margin:0 auto;padding:0 28px 36px;color:var(--muted);fon
   <div id="filter-include"></div>
   <div id="filter-exclude"></div>
   <div id="filter-regions"></div>
+  <div class="filter-other"><div class="filter-label"><span>Altri territori</span></div>
+    <label class="opt-toggle" for="otherToggle"><input type="checkbox" role="switch" id="otherToggle"> <span>Includi altri territori (Istria, Dalmazia, Dodecaneso, Albania)</span></label>
+    <p class="opt-note" id="otherNote"></p></div>
   <div id="filter-roles"></div>
   <div id="filter-territories"></div>
   <div class="actions">
@@ -220,8 +224,6 @@ footer{max-width:1500px;margin:0 auto;padding:0 28px 36px;color:var(--muted);fon
       </div>
       <button class="linkbtn" id="helpToggle" type="button" aria-expanded="false" aria-controls="helpBox">Come leggere le corrispondenze</button>
     </div>
-    <label class="opt-toggle" for="otherToggle"><input type="checkbox" id="otherToggle"> Includi altri territori (Istria, Dalmazia, Dodecaneso, Albania)</label>
-    <p class="opt-note">Questi nomi riflettono soprattutto la memoria irredentista, della Grande Guerra e dell'esodo giuliano-dalmata: non sono colonie d'oltremare e per questo sono esclusi da mappe, conteggi e grafici, a meno di includerli qui.</p>
     <p class="result-line" id="resultLine" aria-live="polite"></p>
     <p class="caution">Una corrispondenza di nome non implica che l'intitolazione celebri il ruolo coloniale della persona o del luogo.</p>
     <div class="help" id="helpBox" hidden>
@@ -349,7 +351,7 @@ function applyHash(){const p=new URLSearchParams(location.hash.slice(1));
  REVIEW_AUTO=p.get('rev')!=='all';
  for(const k in FILTERS){FILTERS[k]=new Set(p.getAll(HASH_PARAM[k]))}
  METRIC=['abs','norm','mun'].includes(p.get('metric'))?p.get('metric'):'abs';
- PQ=p.get('pq')||'';INCLUDE_OTHER=p.get('altri')==='1';$('otherToggle').checked=INCLUDE_OTHER;PENT=['person','place','other'].includes(p.get('pent'))?p.get('pent'):'';PSORT=p.get('psort')==='name'?'name':'count';CARD=p.get('card')||'';
+ PQ=p.get('pq')||'';INCLUDE_OTHER=p.get('altri')==='1'||[...FILTERS.roles].some(v=>OTHER_ROLES.has(v))||[...FILTERS.territories].some(v=>OTHER_TERRS.has(v))||[...FILTERS.include].some(v=>OTHER_NAMES.has(v));$('otherToggle').checked=INCLUDE_OTHER;PENT=['person','place','other'].includes(p.get('pent'))?p.get('pent'):'';PSORT=p.get('psort')==='name'?'name':'count';CARD=p.get('card')||'';
  PM=p.get('pm')==='p10k'?'p10k':'share';PSIZE=p.get('psize')==='big'?'big':'all';
  $('pq').value=PQ;$('psort').value=PSORT;
  setupPickers();
@@ -370,25 +372,36 @@ document.querySelectorAll('.tab-btn').forEach(b=>{b.addEventListener('click',()=
 window.addEventListener('hashchange',applyHash);
 
 /* ---------- filtri ---------- */
-function setupPicker(hostId,label,key,values,labelFn=x=>x){
+function setupPicker(hostId,label,key,valuesFn,labelFn=x=>x,otherSet=null){
+ let values=valuesFn();
  const host=$(hostId);host.innerHTML=`<div class="filter-label"><span>${label}</span></div><details class="picker"><summary><span class="picker-summary">Tutte</span><span class="picker-count">0</span></summary><div class="picker-menu"><input class="picker-search" type="search" aria-label="Cerca in ${esc(label)}" placeholder="Cerca…"><div class="picker-options"></div><div class="picker-footer"><button class="mini-btn clear" type="button">Azzera</button></div></div></details>`;
  const opts=host.querySelector('.picker-options'),search=host.querySelector('.picker-search'),summary=host.querySelector('.picker-summary'),count=host.querySelector('.picker-count');
- function drawOpts(query=''){const q=norm(query);opts.innerHTML=values.filter(v=>!q||norm(labelFn(v)).includes(q)).map(v=>`<label class="picker-option"><input type="checkbox" value="${esc(v)}" ${FILTERS[key].has(v)?'checked':''}><span>${esc(labelFn(v))}</span></label>`).join('');opts.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{input.checked?FILTERS[key].add(input.value):FILTERS[key].delete(input.value);updateSummary();SHOWN=PAGE;refresh()}))}
- function updateSummary(){const n=FILTERS[key].size;count.textContent=n;summary.textContent=n?`${n} selezionat${n===1?'o':'i'}`:'Tutte'}
+ function drawOpts(query=''){const q=norm(query);const off=v=>otherSet&&otherSet.has(v)&&!INCLUDE_OTHER;opts.innerHTML=values.filter(v=>!q||norm(labelFn(v)).includes(q)).map(v=>`<label class="picker-option${off(v)?' off':''}"><input type="checkbox" value="${esc(v)}" ${FILTERS[key].has(v)?'checked':''}><span>${esc(labelFn(v))}${off(v)?' (esclusi, attiva l&#8217;opzione)':''}</span></label>`).join('');opts.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{input.checked?FILTERS[key].add(input.value):FILTERS[key].delete(input.value);if(input.checked&&otherSet&&otherSet.has(input.value)&&!INCLUDE_OTHER){setOther(true,true);return}updateSummary();SHOWN=PAGE;refresh()}))}
+ function updateSummary(){const n=FILTERS[key].size;count.textContent=n;summary.textContent=n?`${n} selezionat${n===1?'o':'i'}`:(otherSet&&!INCLUDE_OTHER?'Tutte (esclusi altri territori)':'Tutte')}
  search.addEventListener('input',()=>drawOpts(search.value));
  host.querySelector('.clear').addEventListener('click',e=>{e.preventDefault();FILTERS[key].clear();drawOpts(search.value);updateSummary();SHOWN=PAGE;refresh()});
- drawOpts();updateSummary();host._redraw=()=>{drawOpts(search.value);updateSummary()};}
+ drawOpts();updateSummary();host._redraw=()=>{values=valuesFn();drawOpts(search.value);updateSummary()};}
+const OTHER_NAMES=new Set(DATA.filter(isOther).map(r=>r.canonical_name));
+const terrOf=r=>String(r.territories||'').split(';').map(x=>x.trim()).filter(Boolean);
+const OTHER_ROLES=new Set(['other_expansion']);
+const OTHER_TERRS=(()=>{const a=new Set(),b=new Set();DATA.forEach(r=>terrOf(r).forEach(t=>(isOther(r)?a:b).add(t)));return new Set([...a].filter(t=>!b.has(t)))})();
+const PICKER_IDS={kind:'filter-kind',entity:'filter-entity',include:'filter-include',exclude:'filter-exclude',regions:'filter-regions',roles:'filter-roles',territories:'filter-territories'};
+const sortIt=a=>a.sort((x,y)=>x.localeCompare(y,'it'));
 function setupPickers(){
-setupPicker('filter-kind','Tipo di sede','kind',KIND_ORDER.filter(k=>vis().some(r=>r.site_kind===k)),kindLabel);
-setupPicker('filter-entity','Tipologia','entity',[...new Set(vis().map(r=>r.entity_type||'person'))],entityLabel);
-setupPicker('filter-include','Mostra solo questi riferimenti','include',uniq('canonical_name'));
-setupPicker('filter-exclude','Escludi riferimenti','exclude',uniq('canonical_name'));
-setupPicker('filter-regions','Regioni','regions',uniq('region_name'));
-setupPicker('filter-roles','Categorie','roles',uniq('role_category'),roleLabel);
-const TERR=[...new Set(vis().flatMap(r=>String(r.territories||'').split(';').map(x=>x.trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'it'));
-setupPicker('filter-territories','Territori coloniali','territories',TERR,territoryLabel);}
-function matches(r,skipReview){
- if(!INCLUDE_OTHER&&isOther(r))return false;
+setupPicker('filter-kind','Tipo di sede','kind',()=>KIND_ORDER.filter(k=>vis().some(r=>r.site_kind===k)),kindLabel);
+setupPicker('filter-entity','Tipologia','entity',()=>[...new Set(vis().map(r=>r.entity_type||'person'))],entityLabel);
+setupPicker('filter-include','Mostra solo questi riferimenti','include',()=>uniq('canonical_name'));
+setupPicker('filter-exclude','Escludi riferimenti','exclude',()=>uniq('canonical_name'));
+setupPicker('filter-regions','Regioni','regions',()=>uniq('region_name'));
+setupPicker('filter-roles','Categorie','roles',()=>sortIt([...new Set(DATA.map(r=>String(r.role_category||'').trim()).filter(Boolean))]),roleLabel,OTHER_ROLES);
+setupPicker('filter-territories','Territori coloniali','territories',()=>sortIt([...new Set(DATA.flatMap(terrOf))]),territoryLabel,OTHER_TERRS);
+$('otherToggle').checked=INCLUDE_OTHER;$('otherNote').textContent=INCLUDE_OTHER?'Attivo: Istria, Dalmazia, Dodecaneso e Albania compaiono in mappe, conteggi e grafici.':'Spento: sono nomi legati alla memoria irredentista e dell\'esodo, non colonie d\'oltremare, quindi esclusi da mappe, conteggi e grafici.'}
+function redrawPickers(){Object.values(PICKER_IDS).forEach(id=>$(id)._redraw());$('otherToggle').checked=INCLUDE_OTHER;$('otherNote').textContent=INCLUDE_OTHER?'Attivo: Istria, Dalmazia, Dodecaneso e Albania compaiono in mappe, conteggi e grafici.':'Spento: sono nomi legati alla memoria irredentista e dell\'esodo, non colonie d\'oltremare, quindi esclusi da mappe, conteggi e grafici.'}
+function setOther(on,fromPicker){INCLUDE_OTHER=on;
+ if(!on){OTHER_ROLES.forEach(v=>FILTERS.roles.delete(v));OTHER_TERRS.forEach(v=>FILTERS.territories.delete(v));OTHER_NAMES.forEach(v=>FILTERS.include.delete(v))}
+ redrawPickers();Object.keys(dirty).forEach(k=>dirty[k]=true);SHOWN=PAGE;refresh()}
+function matches(r,skipReview,ignoreOther){
+ if(!INCLUDE_OTHER&&!ignoreOther&&isOther(r))return false;
  if(FILTERS.kind.size&&!FILTERS.kind.has(kindOf(r)))return false;
  if(FILTERS.entity.size&&!FILTERS.entity.has(r.entity_type||'person'))return false;
  if(FILTERS.include.size&&!FILTERS.include.has(r.canonical_name))return false;
@@ -408,7 +421,7 @@ const BAR_CFG={responsive:true,displayModeBar:false};const short=(t,n=30)=>t.len
 const plotLayout=extra=>Object.assign({paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{family:'Inter, system-ui, sans-serif',color:cssv('--ink'),size:12},margin:{l:120,r:15,t:12,b:42},xaxis:{gridcolor:cssv('--grid'),zeroline:false},yaxis:{gridcolor:'rgba(0,0,0,0)',automargin:true}},extra||{});
 function categoryOf(r){if(!r.role_category&&kindOf(r)==='quartiere')return methodLabel(r.match_method);return roleLabel(r.role_category||((r.entity_type||'person')==='place'?'city_or_locality':'person'))}
 function barChart(id,items,color,tpl,extra){Plotly.react(id,[{type:'bar',orientation:'h',y:items.map(x=>short(x[0],34)),text:items.map(x=>x[0]),textposition:'none',hovertemplate:tpl,x:items.map(x=>x[1]),marker:{color:cssv(color)}}],plotLayout(extra),BAR_CFG)}
-function clearFilter(k){if(k==='q'){$('q').value='';QT=[]}else if(k==='rev')REVIEW_AUTO=true;else if(k==='other'){INCLUDE_OTHER=false;$('otherToggle').checked=false;setupPickers()}else{FILTERS[k].clear();$('filter-'+({kind:'kind',entity:'entity',include:'include',exclude:'exclude',regions:'regions',roles:'roles',territories:'territories'})[k])._redraw()}SHOWN=PAGE;refresh()}
+function clearFilter(k){if(k==='q'){$('q').value='';QT=[]}else if(k==='rev')REVIEW_AUTO=true;else if(k==='other'){setOther(false);return}else{FILTERS[k].clear();$('filter-'+({kind:'kind',entity:'entity',include:'include',exclude:'exclude',regions:'regions',roles:'roles',territories:'territories'})[k])._redraw()}SHOWN=PAGE;refresh()}
 function renderChips(){const items=[];const add=(label,k,fmtFn=x=>x)=>{if(FILTERS[k].size)items.push([k,`${label}: ${[...FILTERS[k]].map(fmtFn).join(', ')}`])};
  if(QT.length)items.push(['q',`Ricerca: ${$('q').value.trim()}`]);if(!REVIEW_AUTO)items.push(['rev','Incluse le corrispondenze da verificare']);if(INCLUDE_OTHER)items.push(['other','Inclusi altri territori (Istria, Dalmazia, Dodecaneso, Albania)']);
  add('Sede','kind',kindLabel);add('Tipo','entity',entityLabel);add('Solo','include');add('Esclusi','exclude');add('Regioni','regions');add('Categorie','roles',roleLabel);add('Territori','territories',territoryLabel);
@@ -425,9 +438,10 @@ function renderExplore(){
  let rl=`<span><b>${fmt(rows.length)}</b> ${rows.length===1?'risultato':'risultati'}</span>`;
  if(REVIEW_AUTO&&pending)rl+=`<span>${fmt(pending)} ${pending===1?'corrispondenza da verificare nascosta':'corrispondenze da verificare nascoste'} <button class="linkbtn" type="button" id="incl">Includi</button></span>`;
  else if(!REVIEW_AUTO&&pending)rl+=`<span>di cui ${fmt(pending)} da verificare</span>`;
+ if(!INCLUDE_OTHER){const nx=DATA.filter(r=>isOther(r)&&matches(r,false,true)).length;if(nx)rl+=`<span>${fmt(nx)} ${nx===1?'intitolazione di altri territori esclusa':'intitolazioni di altri territori escluse'} &middot; <button class="linkbtn" type="button" id="inclOther">Includi</button></span>`}
  if(rows.length)rl+=`<button class="linkbtn" type="button" id="toTable">Vai alla tabella</button>`;
  $('resultLine').innerHTML=rl;
- $('incl')?.addEventListener('click',()=>setReview(false));$('toTable')?.addEventListener('click',()=>$('dataCard').scrollIntoView({behavior:'smooth'}));
+ $('incl')?.addEventListener('click',()=>setReview(false));$('inclOther')?.addEventListener('click',()=>setOther(true));$('toTable')?.addEventListener('click',()=>$('dataCard').scrollIntoView({behavior:'smooth'}));
  const em=$('emptyMsg');em.hidden=!!rows.length;
  if(!rows.length){em.innerHTML=(REVIEW_AUTO&&pending?`Nessun risultato tra le corrispondenze verificate, ma ce ne sono ${fmt(pending)} da verificare. <button class="mini-btn" type="button" id="incl2">Mostrale</button>`:'Nessun risultato con i filtri attuali. Controlla l\'ortografia o azzera i filtri.');$('incl2')?.addEventListener('click',()=>setReview(false))}
  /* grafici */
@@ -587,8 +601,8 @@ $('themeBtn').addEventListener('click',()=>{const d=document.documentElement;d.d
  const p=new URLSearchParams(location.hash.slice(1));if(p.has('theme')){p.set('theme',d.dataset.theme);try{history.replaceState(null,'',location.pathname+location.search+'#'+p.toString())}catch(e){}}
  Object.keys(dirty).forEach(k=>dirty[k]=true);draw()});
 document.querySelectorAll('#metricSeg .seg').forEach(btn=>btn.addEventListener('click',()=>{METRIC=btn.dataset.metric;document.querySelectorAll('#metricSeg .seg').forEach(x=>x.setAttribute('aria-pressed',String(x===btn)));refresh()}));
-$('reset').addEventListener('click',()=>{Object.values(FILTERS).forEach(s=>s.clear());INCLUDE_OTHER=false;$('otherToggle').checked=false;setupPickers();$('q').value='';QT=[];REVIEW_AUTO=true;SHOWN=PAGE;refresh()});
-$('otherToggle').addEventListener('change',()=>{INCLUDE_OTHER=$('otherToggle').checked;setupPickers();Object.keys(dirty).forEach(k=>dirty[k]=true);SHOWN=PAGE;refresh()});
+$('reset').addEventListener('click',()=>{Object.values(FILTERS).forEach(s=>s.clear());INCLUDE_OTHER=false;setupPickers();$('q').value='';QT=[];REVIEW_AUTO=true;SHOWN=PAGE;refresh()});
+$('otherToggle').addEventListener('change',()=>setOther($('otherToggle').checked));
 $('downloadData').addEventListener('click',()=>download('toponimi_coloniali_filtrati.csv',csvText(filtered())));
 $('downloadRegistry').addEventListener('click',()=>download('registro_matching_utilizzato.csv',REGISTRY_CSV));
 applyHash();

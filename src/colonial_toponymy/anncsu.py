@@ -100,7 +100,8 @@ def download_istat_municipalities(destination: str | Path, url: str = ISTAT_MUNI
 
 
 def load_istat_municipalities(xlsx_path: str | Path) -> pd.DataFrame:
-    df = pd.read_excel(xlsx_path, dtype=str).fillna("")
+    # keep_default_na=False: the comune of None (TO) would otherwise be read as a missing value
+    df = pd.read_excel(xlsx_path, dtype=str, keep_default_na=False, na_values=[""]).fillna("")
     df = standardize_columns(df)
     belfiore = resolve_column(df.columns, ["codice catastale del comune", "codice catastale", "codice_belfiore"], required=False)
     municipality = resolve_column(df.columns, ["denominazione in italiano", "denominazione del comune", "denominazione_comune"], required=False)

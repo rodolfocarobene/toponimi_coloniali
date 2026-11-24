@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Neighbourhoods (site_kind "quartiere"): named matches, curated themed districts, detected street clusters.
 
-Input: data/raw/quartieri/ (scripts/02c_download_quartieri.py), config/quartieri_tematici.yml and the
+Input: data/raw/quartieri/ (scripts/02c_download_quartieri.py: OpenStreetMap, ISTAT localities 2021 and the official
+lists of Milano, Bologna and Torino), config/quartieri_tematici.yml and the
 geocoded street matches (scripts/04_geocode_matches.py). The municipality centroids (Wikidata) are read from
 data/raw/public_places/ (read-only). Output: data/processed/quartieri_matches.csv, merged by 05_merge_history.py.
 
 Rows by match_method:
-  exact_* / fuzzy_* / honoree-less name matches   neighbourhood whose name contains a registry name (OSM)
+  exact_* / fuzzy_* / honoree-less name matches   named area whose name contains a registry name (official
+                                                  city lists, OSM, ISTAT localities, deduplicated by comune and
+                                                  normalized name in this order of priority)
   curated_theme                                   themed district of the config file (person_id tema_<id>)
   cluster_streets                                 >= min_streets distinct accepted colonial streets within
                                                   radius_m (person_id "cluster"), always needs_review
@@ -31,6 +34,9 @@ from colonial_toponymy.quartieri import (
     THEME_PERSON_PREFIX,
     detect_street_clusters,
     haversine_m,
+    combine_named_sources,
+    load_city_lists,
+    load_istat_localita,
     load_osm_quartieri,
     load_themed_districts,
     match_quartieri_dataframe,
@@ -154,10 +160,18 @@ def main():
     muni = load_municipalities(load_istat_municipalities(args.municipalities), Path(args.comuni_raw_dir))
 
     osm = load_osm_quartieri(Path(args.raw_dir), muni)
-    totals = region_totals(osm)
-    print(f"OSM named neighbourhoods: {len(osm)} (distinct by comune and name)")
+    city = load_city_lists(Path(args.raw_dir), muni)
+    istat = load_istat_localita(Path(args.raw_dir), muni)
+    # order of priority for duplicates: official city list, OSM, ISTAT locality
+    entities = combine_named_sources(city, osm, istat)
+    totals = region_totals(entities)
+    print(f"Named areas: {len(entities)} (distinct by comune and name): official lists {len(city)}, OSM {len(osm)}, "
+          f"ISTAT localities {len(istat)} before deduplication")
+    print(entities.groupby("place_source").size().to_string())
+    # name of the area nearest to a cluster: only sources with real coordinates (no ISTAT localities, no centroids)
+    nearby_names = combine_named_sources(city[city["coord_precision"] != "municipality_centroid"], osm)
 
-    named = named_rows(osm, registry, args.fuzzy_threshold)
+    named = named_rows(entities, registry, args.fuzzy_threshold)
     print(f"Named matches: {len(named)}")
 
     streets = pd.read_csv(args.streets, dtype=str).fillna("")
@@ -173,11 +187,12 @@ def main():
         near = pd.Series(False, index=named.index)
         for _, t in themed.iterrows():
             d = haversine_m(named["lat"].astype(float), named["lon"].astype(float), t["lat"], t["lon"])
-            near |= (d <= 1500) & (named["municipality_belfiore"] == t["municipality_belfiore"])
+            near |= (d <= 1500) & (named["municipality_belfiore"] == t["municipality_belfiore"]) \
+                & (named["coord_precision"] != "municipality_centroid")
         if near.any():
             print("Named matches replaced by themed districts:", ", ".join(named.loc[near, "name"] + " (" + named.loc[near, "municipality_name"] + ")"))
         named = named[~near]
-    detected = cluster_rows(clusters, absorbed, streets, osm, cl_cfg["name_max_distance_m"], cl_cfg["radius_m"])
+    detected = cluster_rows(clusters, absorbed, streets, nearby_names, cl_cfg["name_max_distance_m"], cl_cfg["radius_m"])
 
     out = pd.concat([named, themed, detected], ignore_index=True, sort=False)
     out["progressivo_odonimo"] = out["place_source_id"]

@@ -79,6 +79,38 @@ quartieri:
   # OpenStreetMap (ODbL) via Overpass, per regione: place=quarter|neighbourhood|suburb e confini
   # amministrativi di livello 9 e 10 con nome (solo centro e tag). Il comune e' il piu' vicino per centroide
   # nella regione (approssimato). Denominatore total_kind_region: quartieri con nome distinti per regione.
+  # Altre fonti di aree con nome, scaricate da 02c in data/raw/quartieri/ (stesso manifest.json):
+  # - ISTAT, basi territoriali 2021, localita' puntuali (centri, nuclei abitati, localita' produttive, ~61 mila
+  #   nomi): una riga per localita' con coordinate UTM 32N, comune da codice PRO_COM. Dati ISTAT riusabili con
+  #   citazione della fonte (licenza CC BY 4.0, https://www.istat.it/note-legali/).
+  # - elenchi ufficiali dei comuni (dati aperti CC BY): Milano (NIL vigenti PGT 2030 e obsoleti PGT 2012),
+  #   Bologna (quartieri, zone, aree statistiche, zone di prossimita'), Torino (zone statistiche).
+  istat_localita:
+    url: "https://www.istat.it/storage/cartografia/basi_territoriali/2021/LocalitaPuntuali_21.zip"
+    file: "istat/LocalitaPuntuali_21.zip"
+    pause_seconds: 5
+  city_lists:
+    - file: "citta/milano_nil.geojson"
+      url: "https://dati.comune.milano.it/dataset/e8e765fc-d882-40b8-95d8-16ff3d39eb7c/resource/9c4e0776-56fc-4f3d-8a90-f4992a3be426/download/ds964_nil_wm.geojson"
+      source: "Comune di Milano, dataset ds964 NIL vigenti PGT 2030 (CC BY)"
+    - file: "citta/milano_nil_obsoleti_pgt2012.geojson"
+      url: "https://dati.comune.milano.it/dataset/e5a0d956-2eff-454d-b0ea-659cb7b55c0b/resource/af78bd3f-ea45-403a-8882-91cca05087f0/download/nilzone.geojson"
+      source: "Comune di Milano, dataset ds61 NIL obsoleti PGT 2012 (CC BY)"
+    - file: "citta/bologna_quartieri-di-bologna.json"
+      url: "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/quartieri-di-bologna/exports/json?limit=-1"
+      source: "Comune di Bologna, Quartieri di Bologna (CC BY 4.0)"
+    - file: "citta/bologna_zone-del-comune-di-bologna.json"
+      url: "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/zone-del-comune-di-bologna/exports/json?limit=-1"
+      source: "Comune di Bologna, Zone del Comune di Bologna (CC BY 4.0)"
+    - file: "citta/bologna_aree-statistiche.json"
+      url: "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/aree-statistiche/exports/json?limit=-1"
+      source: "Comune di Bologna, Aree statistiche di Bologna (CC BY 4.0)"
+    - file: "citta/bologna_zone_urbanistiche.json"
+      url: "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/zone_urbanistiche/exports/json?limit=-1"
+      source: "Comune di Bologna, Zone di prossimita' (CC BY 4.0)"
+    - file: "citta/torino_zone_statistiche_csv.zip"
+      url: "http://geoportale.comune.torino.it/geodati/zip/zone_statistiche_csv.zip"
+      source: "Citta' di Torino, Zone statistiche (CC BY)"
   themed_districts: "config/quartieri_tematici.yml"
   # Cluster rilevati dagli odonimi geocodificati: almeno min_streets vie distinte (match accettati) entro radius_m.
   cluster:
