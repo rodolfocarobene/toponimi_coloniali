@@ -293,6 +293,7 @@ with tab_explore:
     table_df = df.reset_index(drop=True)
     display = table_df[cols].copy()
     display["site_kind"] = display["site_kind"].map(kind_label)
+    display["site_detail"] = display["site_detail"].str.replace("; istituto: ", " · istituto di riferimento: ", regex=False)
     if not (display["site_detail"] != "").any(): display = display.drop(columns="site_detail")
     display["entity_type"] = display["entity_type"].map(entity_label)
     display["role_category"] = display["role_category"].map(role_label)

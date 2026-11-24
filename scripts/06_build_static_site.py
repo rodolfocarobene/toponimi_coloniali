@@ -298,6 +298,12 @@ const entityLabel=v=>ENTITY_LABELS[v]||v||'Persona';
 const methodLabel=v=>METHOD_LABELS[v]||humanize(v)||'—';
 const territoriesText=s=>String(s||'').split(';').map(x=>territoryLabel(x.trim())).filter(Boolean).join('; ');
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+// Plotly non decodifica &quot; nelle etichette della mappa: lì le virgolette restano letterali.
+const escH=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+// Per le scuole site_detail è "Tipo; istituto: NOME": la sede ha un nome proprio diverso da quello dell'istituto.
+const splitDetail=r=>{const m=String(r.site_detail||'').match(/^(.*?);\s*istituto:\s*(.*)$/);return m?{type:m[1],inst:m[2]}:{type:r.site_detail||'',inst:''}};
+const detailShort=r=>{const d=splitDetail(r);return d.type+(d.inst?' · istituto di riferimento: '+d.inst:'')};
+const matchText=r=>{const a=r.matched_alias||r.matched_text;return methodLabel(r.match_method)+(a&&!['cluster_streets','curated_theme'].includes(r.match_method)?': «'+a+'»':'')};
 const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const fmt=n=>Number(n).toLocaleString('it-IT');
 const fmt1=n=>Number(n).toLocaleString('it-IT',{maximumFractionDigits:1});
@@ -455,16 +461,16 @@ function renderExplore(){
  LAST_ROWS=rows;drawMap();renderDetail();renderTable();}
 function setReview(auto){REVIEW_AUTO=auto;SHOWN=PAGE;refresh()}
 let LAST_ROWS=[],MAP_BOUND=false;
-function hoverHtml(r,cat){const L=[`<b>${esc(r.odonimo)}</b>`];
- if(kindOf(r)==='quartiere'){L.push(esc(kindLabel('quartiere')));if(r.site_detail)L.push(esc(short(r.site_detail,180)))}
- else L.push(esc(kindLabel(kindOf(r))+(r.site_detail?' · '+r.site_detail:'')));
- L.push(esc(r.municipality_name)+' · '+esc(r.region_name));
- L.push(`<b>${esc(r.canonical_name)}</b> · ${esc(entTxt(r))}`);
- if(r.territories)L.push(esc(territoriesText(r.territories)));
- L.push('Corrispondenza: '+esc(methodLabel(r.match_method)));
+function hoverHtml(r,cat){const L=[`<b>${escH(r.odonimo)}</b>`];
+ if(kindOf(r)==='quartiere'){L.push(escH(kindLabel('quartiere')));if(r.site_detail)L.push(escH(short(r.site_detail,180)))}
+ else L.push(escH(kindLabel(kindOf(r))+(r.site_detail?' · '+detailShort(r):'')));
+ L.push(escH(r.municipality_name)+' · '+escH(r.region_name));
+ L.push(`<b>${escH(r.canonical_name)}</b> · ${escH(entTxt(r))}`);
+ if(r.territories)L.push(escH(territoriesText(r.territories)));
+ L.push('Corrispondenza: '+escH(matchText(r)));
  if(!r._ok)L.push('<b>Da verificare</b>');
  const p=precisionShort(r);if(p)L.push('<i>'+p+'</i>');
- L.push(esc(cat));return L.join('<br>')}
+ L.push(escH(cat));return L.join('<br>')}
 function drawMap(){const rows=LAST_ROWS;
  const pts=rows.filter(hasCoords);const groups={};pts.forEach(r=>{(groups[categoryOf(r)]??=[]).push(r)});
  const traces=[];const qs=pts.filter(r=>kindOf(r)==='quartiere');
@@ -482,9 +488,10 @@ function selectRow(r,opts={}){SELECTED=r;renderDetail();drawMap();
 function renderDetail(){const d=$('detail'),r=SELECTED;
  if(!r){d.innerHTML='<p class="hint">Clicca un punto sulla mappa o una riga della tabella per vedere i dettagli e il motivo della corrispondenza.</p>';return}
  const reg=REGISTRY.find(x=>x.person_id===r.person_id);const src=reg&&safeUrl(reg.source_url);
- d.innerHTML=`<div class="detail-head"><div><h3>${esc(r.odonimo)}</h3><p class="sub">${esc(kindLabel(kindOf(r)))}${r.site_detail?' · '+esc(r.site_detail):''} · ${esc(r.municipality_name)} (${esc(r.region_name)})</p></div><button class="mini-btn" type="button" id="detailClose" aria-label="Chiudi la scheda">Chiudi</button></div>
+ d.innerHTML=`<div class="detail-head"><div><h3>${esc(r.odonimo)}</h3><p class="sub">${esc(kindLabel(kindOf(r)))}${r.site_detail&&kindOf(r)!=='quartiere'?' · '+esc(splitDetail(r).type):''} · ${esc(r.municipality_name)} (${esc(r.region_name)})</p></div><button class="mini-btn" type="button" id="detailClose" aria-label="Chiudi la scheda">Chiudi</button></div>
  <dl><dt>Riferimento</dt><dd>${hasCard(r)?`<a href="#tab=perche&card=${encodeURIComponent(r.person_id)}" data-card="${esc(r.person_id)}">${esc(r.canonical_name)}</a>`:esc(r.canonical_name)} · ${esc(entTxt(r))}${r.role_category?' · '+esc(roleLabel(r.role_category)):''}</dd>
- <dt>Corrispondenza</dt><dd>${esc(methodLabel(r.match_method))} ${r._ok?'':'<span class="flag">da verificare</span>'}</dd>
+ ${splitDetail(r).inst?`<dt>Istituto</dt><dd>La sede si chiama «${esc(r.odonimo)}» e fa parte dell'istituto «${esc(splitDetail(r).inst)}», che ha un nome diverso.</dd>`:''}
+ <dt>Corrispondenza</dt><dd>${esc(matchText(r))} ${r._ok?'':'<span class="flag">da verificare</span>'}</dd>
  ${kindOf(r)==='quartiere'&&r.site_detail?`<dt>Dettaglio</dt><dd>${esc(r.site_detail)}</dd>`:''}
  <dt>Stato</dt><dd>${esc(statusText(r))}</dd>
  <dt>Posizione</dt><dd>${esc(precisionFull(r))}</dd>${src?`<dt>Fonte del riferimento</dt><dd><a href="${esc(src)}" target="_blank" rel="noopener noreferrer">Fonte</a></dd>`:''}</dl>`;
@@ -493,7 +500,7 @@ function renderDetail(){const d=$('detail'),r=SELECTED;
 function bindCardLinks(root){root.querySelectorAll('a[data-card]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();goToCard(a.dataset.card)}))}
 function goToCard(pid){CARD=pid;PQ='';$('pq').value='';PENT='';dirty.perche=true;showTab('perche',{push:true})}
 /* tabella */
-const COLS=[['site_kind','Sede',r=>kindLabel(kindOf(r))],['odonimo','Denominazione',r=>r.odonimo],['site_detail','Dettaglio',r=>r.site_detail],['municipality_name','Comune',r=>r.municipality_name],['region_name','Regione',r=>r.region_name],['canonical_name','Riferimento',r=>r.canonical_name],['entity_type','Tipo',r=>entTxt(r)],['role_category','Categoria',r=>roleLabel(r.role_category)],['territories','Territorio',r=>territoriesText(r.territories)],['match_method','Corrispondenza',r=>methodLabel(r.match_method)],['_ok','Stato',r=>r._ok?'Verificata':'Da verificare']];
+const COLS=[['site_kind','Sede',r=>kindLabel(kindOf(r))],['odonimo','Denominazione',r=>r.odonimo],['site_detail','Dettaglio',r=>detailShort(r)],['municipality_name','Comune',r=>r.municipality_name],['region_name','Regione',r=>r.region_name],['canonical_name','Riferimento',r=>r.canonical_name],['entity_type','Tipo',r=>entTxt(r)],['role_category','Categoria',r=>roleLabel(r.role_category)],['territories','Territorio',r=>territoriesText(r.territories)],['match_method','Corrispondenza',r=>methodLabel(r.match_method)],['_ok','Stato',r=>r._ok?'Verificata':'Da verificare']];
 function cellHtml(k,r){
  if(k==='site_kind')return`<td><span class="kind-tag">${esc(kindLabel(kindOf(r)))}</span></td>`;
  if(k==='canonical_name')return`<td>${hasCard(r)?`<a href="#tab=perche&card=${encodeURIComponent(r.person_id)}" data-card="${esc(r.person_id)}" title="Perché questo nome">${esc(r.canonical_name)}</a>`:esc(r.canonical_name)}</td>`;
