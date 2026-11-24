@@ -1,0 +1,34 @@
+# Quartieri a tema coloniale noti, il cui nome non contiene un nome del registro (quindi non sono trovati
+# dall'abbinamento sui nomi di quartiere). Ogni voce e' stata verificata su una fonte consultabile
+# (consultate il 2026-11-24): non aggiungere voci senza fonte. Il tema descrive il corpus di odonimi dell'area
+# e non afferma che le intitolazioni celebrino il ruolo coloniale. lat/lon: centro approssimato, ricavato dalle
+# coordinate degli odonimi ANNCSU dell'area (mediana delle vie coloniali o via principale).
+quartieri:
+  - id: quartiere_africano_roma
+    name: Quartiere Africano
+    comune: Roma
+    territories: Libya;Eritrea;Ethiopia;Somalia
+    lat: 41.9299
+    lon: 12.5209
+    description: >-
+      Nome informale della parte orientale del quartiere Trieste di Roma. Quattro viali portano i nomi di
+      Libia, Eritrea, Etiopia e Somalia e sono circondati da vie intitolate a citta e regioni storiche delle
+      colonie e a battaglie coloniali. Il Comune di Roma ha annunciato nel 2024 la modifica delle didascalie
+      di 24 vie e piazze dell'area, non dei nomi.
+    source_title: "Wikipedia (en), Trieste (Rome), sezione Odonyms"
+    source_url: https://en.wikipedia.org/wiki/Trieste_(Rome)
+    source_extra_url: https://www.ilpost.it/2024/11/25/roma-quartiere-africano-nomi-vie/
+  - id: cirenaica_bologna
+    name: Cirenaica
+    comune: Bologna
+    territories: Libya
+    lat: 44.4952
+    lon: 11.3656
+    description: >-
+      Rione di Bologna costruito a partire dal 1911 con vie intitolate alla Libia e alle sue citta (via Libia
+      scelta nel 1913, poi Tripoli, Bengasi, Derna, Zuara, Homs, Cirene). Dopo la seconda guerra mondiale la
+      maggior parte delle vie e' stata ridenominata a partigiani, resta via Libia. Il nome del rione deriva
+      da via Cirene.
+    source_title: "Wikipedia (it), Cirenaica (Bologna)"
+    source_url: https://it.wikipedia.org/wiki/Cirenaica_(Bologna)
+    source_extra_url: https://www.ilrestodelcarlino.it/bologna/cultura/cirenaica-quartiere-bologna-storia-02b38908

@@ -151,6 +151,7 @@ tbody tr:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ok-tag{color:var(--muted);font-size:.74rem}
 .empty{padding:22px;text-align:center;color:var(--muted);font-size:.9rem}
 .empty button{margin-left:6px}
+.opt-toggle{display:flex;gap:8px;align-items:center;font-size:.85rem;font-weight:650;margin:12px 0 0;cursor:pointer} .opt-toggle input{width:17px;height:17px;accent-color:var(--accent2)} .opt-note{margin:2px 0 0 25px;font-size:.78rem;color:var(--muted);max-width:90ch;line-height:1.4}
 .callout{background:var(--note-bg);border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:.88rem;line-height:1.55;max-width:90ch} .callout b{color:var(--ink)}
 .ref-tools{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:14px}
 .ref-tools .searchbox{flex:1 1 320px;max-width:520px} .ref-tools .searchbox input{font-size:1rem;padding:12px 42px 12px 44px}
@@ -219,6 +220,8 @@ footer{max-width:1500px;margin:0 auto;padding:0 28px 36px;color:var(--muted);fon
       </div>
       <button class="linkbtn" id="helpToggle" type="button" aria-expanded="false" aria-controls="helpBox">Come leggere le corrispondenze</button>
     </div>
+    <label class="opt-toggle" for="otherToggle"><input type="checkbox" id="otherToggle"> Includi altri territori (Istria, Dalmazia, Dodecaneso, Albania)</label>
+    <p class="opt-note">Questi nomi riflettono soprattutto la memoria irredentista, della Grande Guerra e dell'esodo giuliano-dalmata: non sono colonie d'oltremare e per questo sono esclusi da mappe, conteggi e grafici, a meno di includerli qui.</p>
     <p class="result-line" id="resultLine" aria-live="polite"></p>
     <p class="caution">Una corrispondenza di nome non implica che l'intitolazione celebri il ruolo coloniale della persona o del luogo.</p>
     <div class="help" id="helpBox" hidden>
@@ -247,7 +250,7 @@ footer{max-width:1500px;margin:0 auto;padding:0 28px 36px;color:var(--muted);fon
   <div class="callout"><b>Perché questi nomi.</b> Una scheda per ogni riferimento del registro curato: chi o cosa è, quale legame con il colonialismo italiano è documentato e quante intitolazioni compaiono nei dati attuali. Le descrizioni sono quelle del registro curato; dove manca la traduzione italiana compare l'originale inglese. Il fatto che un nome compaia non implica che l'intitolazione celebri quel ruolo.</div>
   <div class="ref-tools">
     <div class="searchbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><label class="sr" for="pq">Cerca tra i riferimenti</label><input id="pq" type="search" placeholder="Cerca un riferimento…" autocomplete="off"><button class="search-clear" id="pqClear" type="button" aria-label="Cancella la ricerca" hidden>&times;</button></div>
-    <div class="seg-group" id="pentSeg" role="group" aria-label="Tipologia"><button type="button" data-ent="" aria-pressed="true">Tutti</button><button type="button" data-ent="person" aria-pressed="false">Persone</button><button type="button" data-ent="place" aria-pressed="false">Luoghi e battaglie</button></div>
+    <div class="seg-group" id="pentSeg" role="group" aria-label="Tipologia"><button type="button" data-ent="" aria-pressed="true">Tutti</button><button type="button" data-ent="person" aria-pressed="false">Persone</button><button type="button" data-ent="place" aria-pressed="false">Luoghi e battaglie</button><button type="button" data-ent="other" aria-pressed="false">Altri territori</button></div>
     <label class="sr" for="psort">Ordina</label>
     <select id="psort"><option value="count">Più intitolazioni</option><option value="name">Nome A–Z</option></select>
     <span class="note" id="pcount"></span>
@@ -269,11 +272,11 @@ const POLITICS=__POLITICS__;
 const REGION_POLITICS=__REGION_POLITICS__;
 const CSV_KEYS=Object.keys(DATA[0]||{});
 const PALETTE=['#a4452a','#335d5b','#d39a36','#6f5f91','#44759a','#9c5b6e','#68784f','#b26b3f','#4e7f80','#866f4c','#7a5576','#3d6a54','#9b7344','#516f8b'];
-const ROLE_LABELS={military:'Militare',political:'Politico',administration:'Amministrazione coloniale',political_and_administration:'Politica e amministrazione',military_and_administration:'Militare e amministrazione',military_political_administration:'Militare, politica e amministrazione',military_and_religious:'Militare e religioso',economic:'Economia e impresa',economic_and_colonization:'Economia e colonizzazione',political_economic_administration:'Politica, economia e amministrazione',cultural_or_scientific:'Cultura o scienza',religious:'Religioso',exploration_geography:'Esplorazione e geografia',propaganda_or_advocacy:'Propaganda e promozione coloniale',territory:'Territorio / colonia',city_or_locality:'Città o località',battle_or_campaign:'Battaglia / campagna'};
-const TERRITORY_LABELS={Libya:'Libia',Ethiopia:'Etiopia',Somalia:'Somalia',Eritrea:'Eritrea','Italian East Africa':'Africa Orientale Italiana',Dodecanese:'Dodecaneso',Albania:'Albania'};
-const KIND_LABELS={odonimo:'Vie e piazze',scuola:'Scuole',universita:'Università',luogo_pubblico:'Altri luoghi pubblici'};
-const KIND_ORDER=['odonimo','scuola','universita','luogo_pubblico'];
-const ENTITY_LABELS={person:'Persona',place:'Luogo / battaglia'};
+const ROLE_LABELS={military:'Militare',political:'Politico',administration:'Amministrazione coloniale',political_and_administration:'Politica e amministrazione',military_and_administration:'Militare e amministrazione',military_political_administration:'Militare, politica e amministrazione',military_and_religious:'Militare e religioso',economic:'Economia e impresa',economic_and_colonization:'Economia e colonizzazione',political_economic_administration:'Politica, economia e amministrazione',cultural_or_scientific:'Cultura o scienza',religious:'Religioso',exploration_geography:'Esplorazione e geografia',propaganda_or_advocacy:'Propaganda e promozione coloniale',territory:'Territorio / colonia',city_or_locality:'Città o località',battle_or_campaign:'Battaglia / campagna',other_expansion:'Altri territori (Istria, Dalmazia, Dodecaneso, Albania)'};
+const TERRITORY_LABELS={Libya:'Libia',Ethiopia:'Etiopia',Somalia:'Somalia',Eritrea:'Eritrea','Italian East Africa':'Africa Orientale Italiana',Dodecanese:'Dodecaneso',Albania:'Albania',Istria:'Istria',Dalmatia:'Dalmazia',Fiume:'Fiume'};
+const KIND_LABELS={odonimo:'Vie e piazze',scuola:'Scuole',universita:'Università',luogo_pubblico:'Altri luoghi pubblici',quartiere:'Quartieri'};
+const KIND_ORDER=['odonimo','scuola','universita','luogo_pubblico','quartiere'];
+const ENTITY_LABELS={person:'Persona',place:'Luogo / battaglia',cluster:'Cluster di vie',theme:'Quartiere tematico'};
 const METHODS=[
  ['exact_canonical','Nome completo','Il nome completo del riferimento compare nella denominazione.'],
  ['exact_alias','Alias','Compare un nome alternativo registrato (titolo, variante, soprannome).'],
@@ -281,7 +284,9 @@ const METHODS=[
  ['exact_initial_name','Iniziale + cognome','Iniziale del nome seguita dal cognome (es. «G. Cognome»).'],
  ['honoree_exact_canonical','Wikidata: dedicato a','Il luogo è collegato su Wikidata alla persona a cui è dedicato.'],
  ['fuzzy_full_or_alias','Nome simile','Corrispondenza approssimata: richiede sempre una verifica manuale.'],
- ['surname_in_name','Solo cognome nel nome','Il cognome compare dentro una denominazione più lunga: poco sicura.']];
+ ['surname_in_name','Solo cognome nel nome','Il cognome compare dentro una denominazione più lunga: poco sicura.'],
+ ['cluster_streets','Cluster di vie coloniali','Un\'area con molti odonimi coloniali vicini tra loro: il quartiere è individuato dal raggruppamento delle vie, non da un nome unico.'],
+ ['curated_theme','Quartiere tematico','Quartiere dal nome o dal tema coloniale, da un elenco curato a mano (es. Quartiere Africano a Roma).']];
 const METHOD_LABELS=Object.fromEntries(METHODS.map(m=>[m[0],m[1]]));
 const humanize=v=>{const x=String(v||'').replaceAll('_',' ').trim();return x.charAt(0).toUpperCase()+x.slice(1)};
 const roleLabel=v=>ROLE_LABELS[v]||humanize(v);
@@ -300,10 +305,15 @@ const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
 const $=id=>document.getElementById(id);
 const OK_STATUS=['accepted_auto','accepted_manual'];
 const kindOf=r=>r.site_kind||'odonimo';
+const isOther=r=>r.role_category==='other_expansion';
+const isCluster=r=>r.person_id==='cluster';
+const hasCard=r=>!!r.person_id&&!isCluster(r);
+const entTxt=r=>r.entity_type?entityLabel(r.entity_type):(kindOf(r)==='quartiere'?'Quartiere':entityLabel('person'));
 {const reg=new Map(REGISTRY.map(g=>[g.person_id,g]));DATA.forEach(r=>{const g=reg.get(r.person_id);if(g)for(const k of __REGISTRY_ROW_COLUMNS__)if(!(k in r)&&k in g)r[k]=g[k]})}
 DATA.forEach((r,i)=>{r._i=i;r.site_kind=r.site_kind||'odonimo';r._ok=!r.review_status||OK_STATUS.includes(r.review_status);r._s=norm([r.odonimo,r.municipality_name,r.canonical_name,r.site_detail].join(' '));});
 const PID_BY_NAME={};DATA.forEach(r=>{if(r.canonical_name&&r.person_id)PID_BY_NAME[r.canonical_name]=r.person_id});
-const uniq=f=>[...new Set(DATA.map(r=>String(r[f]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'it'));
+const vis=()=>DATA.filter(r=>INCLUDE_OTHER||!isOther(r));
+const uniq=f=>[...new Set(vis().map(r=>String(r[f]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'it'));
 const statusText=r=>r._ok?(r.review_status==='accepted_manual'?'Verificata a mano':'Verificata automaticamente'):'Da verificare';
 const hasCoords=r=>Number.isFinite(parseFloat(r.lon))&&Number.isFinite(parseFloat(r.lat))&&r.lon!==''&&r.lat!=='';
 const precisionShort=r=>r.coord_precision==='municipality_centroid'?'Posizione approssimata (centro del comune)':'';
@@ -313,7 +323,7 @@ const precisionFull=r=>({municipality_centroid:'Approssimata: centro del comune'
 const FILTERS={kind:new Set(),entity:new Set(),include:new Set(),exclude:new Set(),regions:new Set(),roles:new Set(),territories:new Set()};
 const HASH_PARAM={kind:'sede',entity:'tipo',include:'ref',exclude:'escludi',regions:'regione',roles:'categoria',territories:'territorio'};
 let TAB='esplora',METRIC='abs',REVIEW_AUTO=true,QT=[],SELECTED=null,SORT={k:null,dir:1},SHOWN=100,PAGE=100,CARD='',PM='share',PSIZE='all';
-let PQ='',PENT='',PSORT='count';
+let PQ='',PENT='',PSORT='count',INCLUDE_OTHER=false;
 const dirty={esplora:true,perche:true,politica:true};
 const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const isDark=()=>document.documentElement.dataset.theme==='dark'||(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);
@@ -325,6 +335,7 @@ function stateToHash(){const p=new URLSearchParams();
  const q=$('q').value.trim();if(q)p.set('q',q);
  if(!REVIEW_AUTO)p.set('rev','all');
  for(const k in FILTERS)[...FILTERS[k]].forEach(v=>p.append(HASH_PARAM[k],v));
+ if(INCLUDE_OTHER)p.set('altri','1');
  if(METRIC!=='abs')p.set('metric',METRIC);
  if(PQ)p.set('pq',PQ);if(PENT)p.set('pent',PENT);if(PSORT!=='count')p.set('psort',PSORT);if(CARD)p.set('card',CARD);
  if(PM!=='share')p.set('pm',PM);if(PSIZE!=='all')p.set('psize',PSIZE);
@@ -338,10 +349,10 @@ function applyHash(){const p=new URLSearchParams(location.hash.slice(1));
  REVIEW_AUTO=p.get('rev')!=='all';
  for(const k in FILTERS){FILTERS[k]=new Set(p.getAll(HASH_PARAM[k]))}
  METRIC=['abs','norm','mun'].includes(p.get('metric'))?p.get('metric'):'abs';
- PQ=p.get('pq')||'';PENT=['person','place'].includes(p.get('pent'))?p.get('pent'):'';PSORT=p.get('psort')==='name'?'name':'count';CARD=p.get('card')||'';
+ PQ=p.get('pq')||'';INCLUDE_OTHER=p.get('altri')==='1';$('otherToggle').checked=INCLUDE_OTHER;PENT=['person','place','other'].includes(p.get('pent'))?p.get('pent'):'';PSORT=p.get('psort')==='name'?'name':'count';CARD=p.get('card')||'';
  PM=p.get('pm')==='p10k'?'p10k':'share';PSIZE=p.get('psize')==='big'?'big':'all';
  $('pq').value=PQ;$('psort').value=PSORT;
- document.querySelectorAll('[id^="filter-"]').forEach(h=>h._redraw?.());
+ setupPickers();
  SHOWN=PAGE;
  Object.keys(dirty).forEach(k=>dirty[k]=true);
  showTab(TAB,{noSync:true});}
@@ -367,15 +378,17 @@ function setupPicker(hostId,label,key,values,labelFn=x=>x){
  search.addEventListener('input',()=>drawOpts(search.value));
  host.querySelector('.clear').addEventListener('click',e=>{e.preventDefault();FILTERS[key].clear();drawOpts(search.value);updateSummary();SHOWN=PAGE;refresh()});
  drawOpts();updateSummary();host._redraw=()=>{drawOpts(search.value);updateSummary()};}
-setupPicker('filter-kind','Tipo di sede','kind',KIND_ORDER.filter(k=>DATA.some(r=>r.site_kind===k)),kindLabel);
-setupPicker('filter-entity','Tipologia','entity',[...new Set(DATA.map(r=>r.entity_type||'person'))],entityLabel);
+function setupPickers(){
+setupPicker('filter-kind','Tipo di sede','kind',KIND_ORDER.filter(k=>vis().some(r=>r.site_kind===k)),kindLabel);
+setupPicker('filter-entity','Tipologia','entity',[...new Set(vis().map(r=>r.entity_type||'person'))],entityLabel);
 setupPicker('filter-include','Mostra solo questi riferimenti','include',uniq('canonical_name'));
 setupPicker('filter-exclude','Escludi riferimenti','exclude',uniq('canonical_name'));
 setupPicker('filter-regions','Regioni','regions',uniq('region_name'));
 setupPicker('filter-roles','Categorie','roles',uniq('role_category'),roleLabel);
-const TERR=[...new Set(DATA.flatMap(r=>String(r.territories||'').split(';').map(x=>x.trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'it'));
-setupPicker('filter-territories','Territori coloniali','territories',TERR,territoryLabel);
+const TERR=[...new Set(vis().flatMap(r=>String(r.territories||'').split(';').map(x=>x.trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'it'));
+setupPicker('filter-territories','Territori coloniali','territories',TERR,territoryLabel);}
 function matches(r,skipReview){
+ if(!INCLUDE_OTHER&&isOther(r))return false;
  if(FILTERS.kind.size&&!FILTERS.kind.has(kindOf(r)))return false;
  if(FILTERS.entity.size&&!FILTERS.entity.has(r.entity_type||'person'))return false;
  if(FILTERS.include.size&&!FILTERS.include.has(r.canonical_name))return false;
@@ -393,11 +406,11 @@ const u=(rows,f)=>new Set(rows.map(r=>r[f]).filter(Boolean)).size;
 function counts(rows,f){const m={};rows.forEach(r=>{const k=r[f];if(k)m[k]=(m[k]||0)+1});return m}
 const BAR_CFG={responsive:true,displayModeBar:false};const short=(t,n=30)=>t.length>n?t.slice(0,n-1)+'…':t;
 const plotLayout=extra=>Object.assign({paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{family:'Inter, system-ui, sans-serif',color:cssv('--ink'),size:12},margin:{l:120,r:15,t:12,b:42},xaxis:{gridcolor:cssv('--grid'),zeroline:false},yaxis:{gridcolor:'rgba(0,0,0,0)',automargin:true}},extra||{});
-function categoryOf(r){return roleLabel(r.role_category||((r.entity_type||'person')==='place'?'city_or_locality':'person'))}
+function categoryOf(r){if(!r.role_category&&kindOf(r)==='quartiere')return methodLabel(r.match_method);return roleLabel(r.role_category||((r.entity_type||'person')==='place'?'city_or_locality':'person'))}
 function barChart(id,items,color,tpl,extra){Plotly.react(id,[{type:'bar',orientation:'h',y:items.map(x=>short(x[0],34)),text:items.map(x=>x[0]),textposition:'none',hovertemplate:tpl,x:items.map(x=>x[1]),marker:{color:cssv(color)}}],plotLayout(extra),BAR_CFG)}
-function clearFilter(k){if(k==='q'){$('q').value='';QT=[]}else if(k==='rev')REVIEW_AUTO=true;else{FILTERS[k].clear();$('filter-'+({kind:'kind',entity:'entity',include:'include',exclude:'exclude',regions:'regions',roles:'roles',territories:'territories'})[k])._redraw()}SHOWN=PAGE;refresh()}
+function clearFilter(k){if(k==='q'){$('q').value='';QT=[]}else if(k==='rev')REVIEW_AUTO=true;else if(k==='other'){INCLUDE_OTHER=false;$('otherToggle').checked=false;setupPickers()}else{FILTERS[k].clear();$('filter-'+({kind:'kind',entity:'entity',include:'include',exclude:'exclude',regions:'regions',roles:'roles',territories:'territories'})[k])._redraw()}SHOWN=PAGE;refresh()}
 function renderChips(){const items=[];const add=(label,k,fmtFn=x=>x)=>{if(FILTERS[k].size)items.push([k,`${label}: ${[...FILTERS[k]].map(fmtFn).join(', ')}`])};
- if(QT.length)items.push(['q',`Ricerca: ${$('q').value.trim()}`]);if(!REVIEW_AUTO)items.push(['rev','Incluse le corrispondenze da verificare']);
+ if(QT.length)items.push(['q',`Ricerca: ${$('q').value.trim()}`]);if(!REVIEW_AUTO)items.push(['rev','Incluse le corrispondenze da verificare']);if(INCLUDE_OTHER)items.push(['other','Inclusi altri territori (Istria, Dalmazia, Dodecaneso, Albania)']);
  add('Sede','kind',kindLabel);add('Tipo','entity',entityLabel);add('Solo','include');add('Esclusi','exclude');add('Regioni','regions');add('Categorie','roles',roleLabel);add('Territori','territories',territoryLabel);
  $('activeFilters').innerHTML=items.map(([k,t])=>`<button type="button" class="active-chip" data-k="${k}" aria-label="Rimuovi filtro: ${esc(t)}"><span>${esc(t)}</span><i aria-hidden="true">&times;</i></button>`).join('');
  $('activeFilters').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>clearFilter(b.dataset.k)));
@@ -408,7 +421,7 @@ function renderExplore(){
  $('pendingN').textContent=pending?` (${fmt(pending)})`:'';
  $('qClear').hidden=!$('q').value;
  renderChips();
- $('m1').textContent=fmt(rows.length);$('m2').textContent=fmt(u(rows,'municipality_belfiore'));$('m3').textContent=fmt(u(rows,'person_id'));$('m4').textContent=fmt(u(rows,'region_name'));
+ $('m1').textContent=fmt(rows.length);$('m2').textContent=fmt(u(rows,'municipality_belfiore'));$('m3').textContent=fmt(new Set(rows.filter(r=>r.person_id&&!isCluster(r)).map(r=>r.person_id)).size);$('m4').textContent=fmt(u(rows,'region_name'));
  let rl=`<span><b>${fmt(rows.length)}</b> ${rows.length===1?'risultato':'risultati'}</span>`;
  if(REVIEW_AUTO&&pending)rl+=`<span>${fmt(pending)} ${pending===1?'corrispondenza da verificare nascosta':'corrispondenze da verificare nascoste'} <button class="linkbtn" type="button" id="incl">Includi</button></span>`;
  else if(!REVIEW_AUTO&&pending)rl+=`<span>di cui ${fmt(pending)} da verificare</span>`;
@@ -419,9 +432,9 @@ function renderExplore(){
  if(!rows.length){em.innerHTML=(REVIEW_AUTO&&pending?`Nessun risultato tra le corrispondenze verificate, ma ce ne sono ${fmt(pending)} da verificare. <button class="mini-btn" type="button" id="incl2">Mostrale</button>`:'Nessun risultato con i filtri attuali. Controlla l\'ortografia o azzera i filtri.');$('incl2')?.addEventListener('click',()=>setReview(false))}
  /* grafici */
  let rg={};rows.forEach(r=>(rg[r.region_name]??=[]).push(r));
- let vals=Object.entries(rg).filter(([k])=>k).map(([k,v])=>{let x=v.length;if(METRIC==='mun')x=u(v,'municipality_belfiore');if(METRIC==='norm'){const den={};v.forEach(r=>{const kk=kindOf(r);if(!(kk in den)){const t=Number(r.total_kind_region||r.total_odonimi_region);den[kk]=Number.isFinite(t)?t:0}});const t=Object.values(den).reduce((a,b)=>a+b,0);x=t?10000*v.length/t:null}return[k,x]}).filter(x=>x[1]!=null).sort((a,b)=>a[1]-b[1]);
+ let vals=Object.entries(rg).filter(([k])=>k).map(([k,v])=>{let x=v.length;if(METRIC==='mun')x=u(v,'municipality_belfiore');if(METRIC==='norm'){v=v.filter(r=>kindOf(r)!=='quartiere');const den={};v.forEach(r=>{const kk=kindOf(r);if(!(kk in den)){const t=Number(r.total_kind_region||r.total_odonimi_region);den[kk]=Number.isFinite(t)?t:0}});const t=Object.values(den).reduce((a,b)=>a+b,0);x=t?10000*v.length/t:null}return[k,x]}).filter(x=>x[1]!=null).sort((a,b)=>a[1]-b[1]);
  barChart('regional',vals,'--bar1','%{text}: %{x:,.1f}<extra></extra>',{height:Math.max(360,vals.length*27),margin:{l:10,r:15,t:8,b:40}});
- const fc=Object.entries(counts(rows,'canonical_name')).sort((a,b)=>b[1]-a[1]).slice(0,18).sort((a,b)=>a[1]-b[1]);
+ const fc=Object.entries(counts(rows.filter(r=>!isCluster(r)),'canonical_name')).sort((a,b)=>b[1]-a[1]).slice(0,18).sort((a,b)=>a[1]-b[1]);
  barChart('figures',fc,'--bar2','%{text}: %{x}<extra></extra>',{height:500,margin:{l:10,r:15,t:8,b:40}});
  const rc=Object.entries(counts(rows,'role_category')).map(([k,v])=>[roleLabel(k),v]).sort((a,b)=>a[1]-b[1]);
  barChart('rolesChart',rc,'--bar3','%{text}: %{x}<extra></extra>',{height:500,margin:{l:10,r:15,t:8,b:40}});
@@ -429,9 +442,10 @@ function renderExplore(){
 function setReview(auto){REVIEW_AUTO=auto;SHOWN=PAGE;refresh()}
 let LAST_ROWS=[],MAP_BOUND=false;
 function hoverHtml(r,cat){const L=[`<b>${esc(r.odonimo)}</b>`];
- L.push(esc(kindLabel(kindOf(r))+(r.site_detail?' · '+r.site_detail:'')));
+ if(kindOf(r)==='quartiere'){L.push(esc(kindLabel('quartiere')));if(r.site_detail)L.push(esc(short(r.site_detail,180)))}
+ else L.push(esc(kindLabel(kindOf(r))+(r.site_detail?' · '+r.site_detail:'')));
  L.push(esc(r.municipality_name)+' · '+esc(r.region_name));
- L.push(`<b>${esc(r.canonical_name)}</b> · ${esc(entityLabel(r.entity_type||'person'))}`);
+ L.push(`<b>${esc(r.canonical_name)}</b> · ${esc(entTxt(r))}`);
  if(r.territories)L.push(esc(territoriesText(r.territories)));
  L.push('Corrispondenza: '+esc(methodLabel(r.match_method)));
  if(!r._ok)L.push('<b>Da verificare</b>');
@@ -439,12 +453,14 @@ function hoverHtml(r,cat){const L=[`<b>${esc(r.odonimo)}</b>`];
  L.push(esc(cat));return L.join('<br>')}
 function drawMap(){const rows=LAST_ROWS;
  const pts=rows.filter(hasCoords);const groups={};pts.forEach(r=>{(groups[categoryOf(r)]??=[]).push(r)});
- const traces=Object.entries(groups).sort(([a],[b])=>a.localeCompare(b,'it')).map(([cat,g],i)=>({type:'scattermap',mode:'markers',name:cat,lon:g.map(r=>+r.lon),lat:g.map(r=>+r.lat),customdata:g.map(r=>r._i),text:g.map(r=>hoverHtml(r,cat)),hoverinfo:'text',marker:{size:g.map(r=>r.coord_precision==='municipality_centroid'?9:11),opacity:g.map(r=>r.coord_precision==='municipality_centroid'?.38:.86),color:PALETTE[i%PALETTE.length]}}));
+ const traces=[];const qs=pts.filter(r=>kindOf(r)==='quartiere');
+ if(qs.length)traces.push({type:'scattermap',mode:'markers',name:'Quartieri',showlegend:false,hoverinfo:'skip',lon:qs.map(r=>+r.lon),lat:qs.map(r=>+r.lat),marker:{size:26,opacity:.55,color:cssv('--ink')}});
+ traces.push(...Object.entries(groups).sort(([a],[b])=>a.localeCompare(b,'it')).map(([cat,g],i)=>({type:'scattermap',mode:'markers',name:cat,lon:g.map(r=>+r.lon),lat:g.map(r=>+r.lat),customdata:g.map(r=>r._i),text:g.map(r=>hoverHtml(r,cat)),hoverinfo:'text',marker:{size:g.map(r=>kindOf(r)==='quartiere'?18:r.coord_precision==='municipality_centroid'?9:11),opacity:g.map(r=>r.coord_precision==='municipality_centroid'?.38:.86),color:PALETTE[i%PALETTE.length]}})));
  traces.push({type:'scattermap',mode:'markers',name:'Selezione',showlegend:false,hoverinfo:'skip',lon:SELECTED&&hasCoords(SELECTED)?[+SELECTED.lon]:[],lat:SELECTED&&hasCoords(SELECTED)?[+SELECTED.lat]:[],marker:{size:26,opacity:.3,color:cssv('--ink')}});
  Plotly.react('map',traces,{uirevision:'map',map:{style:baseStyle(),center:{lat:42.4,lon:12.5},zoom:4.45},paper_bgcolor:'rgba(0,0,0,0)',margin:{l:0,r:0,t:0,b:70},legend:{orientation:'h',yanchor:'top',y:-0.01,x:0,tracegroupgap:2,itemsizing:'constant',bgcolor:cssv('--aside'),font:{size:10,color:cssv('--ink')}}},{responsive:true,displaylogo:false,modeBarButtonsToRemove:['select2d','lasso2d']}).then(()=>{
   if(!MAP_BOUND){MAP_BOUND=true;$('map').on('plotly_click',e=>{const p=e.points&&e.points[0];if(p&&p.customdata!=null)selectRow(DATA[p.customdata],{zoom:false})})}});
  const approx=pts.filter(r=>r.coord_precision==='municipality_centroid').length;
- $('mapNote').textContent=`${fmt(pts.length)} dei ${fmt(rows.length)} intitolazioni filtrate hanno coordinate`+(approx?`; ${fmt(approx)} approssimate al centro del comune (punti più chiari).`:'.')}
+ $('mapNote').textContent=`${fmt(pts.length)} dei ${fmt(rows.length)} intitolazioni filtrate hanno coordinate`+(approx?`; ${fmt(approx)} approssimate al centro del comune (punti più chiari).`:'.')+(qs.length?` I quartieri (${fmt(qs.length)}) sono i cerchi più grandi con alone scuro.`:'')}
 function selectRow(r,opts={}){SELECTED=r;renderDetail();drawMap();
  document.querySelectorAll('#tbody tr').forEach(tr=>tr.classList.toggle('sel',+tr.dataset.i===r._i));
  if(opts.zoom&&hasCoords(r)){const z=r.coord_precision==='municipality_centroid'?11:r.coord_precision==='point'?16:15;Plotly.relayout('map',{'map.center':{lat:+r.lat,lon:+r.lon},'map.zoom':z})}
@@ -453,8 +469,9 @@ function renderDetail(){const d=$('detail'),r=SELECTED;
  if(!r){d.innerHTML='<p class="hint">Clicca un punto sulla mappa o una riga della tabella per vedere i dettagli e il motivo della corrispondenza.</p>';return}
  const reg=REGISTRY.find(x=>x.person_id===r.person_id);const src=reg&&safeUrl(reg.source_url);
  d.innerHTML=`<div class="detail-head"><div><h3>${esc(r.odonimo)}</h3><p class="sub">${esc(kindLabel(kindOf(r)))}${r.site_detail?' · '+esc(r.site_detail):''} · ${esc(r.municipality_name)} (${esc(r.region_name)})</p></div><button class="mini-btn" type="button" id="detailClose" aria-label="Chiudi la scheda">Chiudi</button></div>
- <dl><dt>Riferimento</dt><dd>${r.person_id?`<a href="#tab=perche&card=${encodeURIComponent(r.person_id)}" data-card="${esc(r.person_id)}">${esc(r.canonical_name)}</a>`:esc(r.canonical_name)} · ${esc(entityLabel(r.entity_type||'person'))}${r.role_category?' · '+esc(roleLabel(r.role_category)):''}</dd>
+ <dl><dt>Riferimento</dt><dd>${hasCard(r)?`<a href="#tab=perche&card=${encodeURIComponent(r.person_id)}" data-card="${esc(r.person_id)}">${esc(r.canonical_name)}</a>`:esc(r.canonical_name)} · ${esc(entTxt(r))}${r.role_category?' · '+esc(roleLabel(r.role_category)):''}</dd>
  <dt>Corrispondenza</dt><dd>${esc(methodLabel(r.match_method))} ${r._ok?'':'<span class="flag">da verificare</span>'}</dd>
+ ${kindOf(r)==='quartiere'&&r.site_detail?`<dt>Dettaglio</dt><dd>${esc(r.site_detail)}</dd>`:''}
  <dt>Stato</dt><dd>${esc(statusText(r))}</dd>
  <dt>Posizione</dt><dd>${esc(precisionFull(r))}</dd>${src?`<dt>Fonte del riferimento</dt><dd><a href="${esc(src)}" target="_blank" rel="noopener noreferrer">Fonte</a></dd>`:''}</dl>`;
  $('detailClose').addEventListener('click',()=>{SELECTED=null;renderDetail();drawMap();document.querySelectorAll('#tbody tr.sel').forEach(t=>t.classList.remove('sel'))});
@@ -462,10 +479,10 @@ function renderDetail(){const d=$('detail'),r=SELECTED;
 function bindCardLinks(root){root.querySelectorAll('a[data-card]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();goToCard(a.dataset.card)}))}
 function goToCard(pid){CARD=pid;PQ='';$('pq').value='';PENT='';dirty.perche=true;showTab('perche',{push:true})}
 /* tabella */
-const COLS=[['site_kind','Sede',r=>kindLabel(kindOf(r))],['odonimo','Denominazione',r=>r.odonimo],['site_detail','Dettaglio',r=>r.site_detail],['municipality_name','Comune',r=>r.municipality_name],['region_name','Regione',r=>r.region_name],['canonical_name','Riferimento',r=>r.canonical_name],['entity_type','Tipo',r=>entityLabel(r.entity_type||'person')],['role_category','Categoria',r=>roleLabel(r.role_category)],['territories','Territorio',r=>territoriesText(r.territories)],['match_method','Corrispondenza',r=>methodLabel(r.match_method)],['_ok','Stato',r=>r._ok?'Verificata':'Da verificare']];
+const COLS=[['site_kind','Sede',r=>kindLabel(kindOf(r))],['odonimo','Denominazione',r=>r.odonimo],['site_detail','Dettaglio',r=>r.site_detail],['municipality_name','Comune',r=>r.municipality_name],['region_name','Regione',r=>r.region_name],['canonical_name','Riferimento',r=>r.canonical_name],['entity_type','Tipo',r=>entTxt(r)],['role_category','Categoria',r=>roleLabel(r.role_category)],['territories','Territorio',r=>territoriesText(r.territories)],['match_method','Corrispondenza',r=>methodLabel(r.match_method)],['_ok','Stato',r=>r._ok?'Verificata':'Da verificare']];
 function cellHtml(k,r){
  if(k==='site_kind')return`<td><span class="kind-tag">${esc(kindLabel(kindOf(r)))}</span></td>`;
- if(k==='canonical_name')return`<td>${r.person_id?`<a href="#tab=perche&card=${encodeURIComponent(r.person_id)}" data-card="${esc(r.person_id)}" title="Perché questo nome">${esc(r.canonical_name)}</a>`:esc(r.canonical_name)}</td>`;
+ if(k==='canonical_name')return`<td>${hasCard(r)?`<a href="#tab=perche&card=${encodeURIComponent(r.person_id)}" data-card="${esc(r.person_id)}" title="Perché questo nome">${esc(r.canonical_name)}</a>`:esc(r.canonical_name)}</td>`;
  if(k==='_ok')return`<td>${r._ok?'<span class="ok-tag">Verificata</span>':'<span class="flag">da verificare</span>'}</td>`;
  const v=COLS.find(c=>c[0]===k)[2](r)||'';return`<td title="${esc(v)}">${esc(v)}</td>`}
 function renderTable(){const rows=LAST_ROWS.slice();
@@ -486,22 +503,24 @@ function download(name,text){const a=document.createElement('a');const url=URL.c
 
 /* ---------- perché questi nomi ---------- */
 $('methodHelp').innerHTML=METHODS.map(m=>`<dt>${esc(m[1])}</dt><dd>${esc(m[2])}</dd>`).join('');
-function refCounts(){const m={};DATA.forEach(r=>{if(!r.person_id)return;const c=m[r.person_id]??={ok:0,pending:0};r._ok?c.ok++:c.pending++});return m}
-function renderRefs(){const C=refCounts();const q=norm(PQ).split(' ').filter(Boolean);
+function refCounts(){const m={};DATA.forEach(r=>{if(!r.person_id||isCluster(r))return;const c=m[r.person_id]??={ok:0,pending:0};r._ok?c.ok++:c.pending++});return m}
+function renderRefs(){const C=refCounts();
+ if(CARD){const cg=REGISTRY.find(x=>x.person_id===CARD);if(cg){const o=cg.role_category==='other_expansion';if(o)PENT='other';else if(PENT==='other')PENT=''}}const q=norm(PQ).split(' ').filter(Boolean);
  $('pentSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ent===PENT)));$('pqClear').hidden=!PQ;
  let list=REGISTRY.map(g=>({g,c:C[g.person_id]||{ok:0,pending:0},s:norm([g.canonical_name,g.aliases,summaryOf(g),territoriesText(g.territories),roleLabel(g.role_category),g.period].join(' '))}))
-  .filter(x=>(!PENT||(x.g.entity_type||'person')===PENT)&&q.every(t=>x.s.includes(t)));
+  .filter(x=>x.g.person_id!=='cluster'&&(PENT==='other'?x.g.role_category==='other_expansion':(x.g.role_category!=='other_expansion'&&(!PENT||(x.g.entity_type||'person')===PENT)))&&q.every(t=>x.s.includes(t)));
  list.sort((a,b)=>PSORT==='name'?a.g.canonical_name.localeCompare(b.g.canonical_name,'it'):((b.c.ok+b.c.pending)-(a.c.ok+a.c.pending))||a.g.canonical_name.localeCompare(b.g.canonical_name,'it'));
- $('pcount').textContent=`${fmt(list.length)} di ${fmt(REGISTRY.length)} riferimenti`;
- $('refGrid').innerHTML=list.length?list.map(({g,c})=>{const tot=c.ok+c.pending;const src=safeUrl(g.source_url);const terr=territoriesText(g.territories);
+ const nReg=REGISTRY.filter(g=>g.person_id!=='cluster'&&((g.role_category==='other_expansion')===(PENT==='other'))).length;
+ $('pcount').textContent=`${fmt(list.length)} di ${fmt(nReg)} riferimenti`;
+ $('refGrid').innerHTML=(PENT==='other'?'<div class="callout" style="grid-column:1/-1;margin:0"><b>Altri territori.</b> Questi riferimenti riguardano l\'espansione e la memoria irredentista italiana fuori dall\'Africa (Istria, Dalmazia, Fiume, Dodecaneso, Albania). Non sono colonie d\'oltremare in senso stretto e non compaiono sotto «Tutti».</div>':'')+(list.length?list.map(({g,c})=>{const tot=c.ok+c.pending;const src=safeUrl(g.source_url);const terr=territoriesText(g.territories);
   return`<article class="ref-card" id="ref-${esc(g.person_id)}"><h3>${esc(g.canonical_name)}</h3><div class="ref-tags"><span class="kind-tag">${esc(entityLabel(g.entity_type||'person'))}</span><span class="kind-tag">${esc(roleLabel(g.role_category))}</span></div>
   ${(terr||g.period)?`<p class="ref-meta">${esc([terr,g.period].filter(Boolean).join(' · '))}</p>`:''}
   <p class="ref-sum">${esc(summaryOf(g))}</p>
-  <div class="ref-foot"><span class="cnt">${tot?`<b>${fmt(c.ok)}</b> intitolazioni verificate`+(c.pending?` · <b>${fmt(c.pending)}</b> <span class="flag">da verificare</span>`:''):'Nessuna intitolazione nei dati attuali'}</span>${src?`<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">Fonte</a>`:''}<button class="mini-btn" type="button" data-show="${esc(g.person_id)}" ${tot?'':'disabled'}>Mostra sulla mappa</button></div></article>`}).join(''):'<div class="empty card">Nessun riferimento corrisponde alla ricerca.</div>';
+  <div class="ref-foot"><span class="cnt">${tot?`<b>${fmt(c.ok)}</b> intitolazioni verificate`+(c.pending?` · <b>${fmt(c.pending)}</b> <span class="flag">da verificare</span>`:''):'Nessuna intitolazione nei dati attuali'}</span>${src?`<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">Fonte</a>`:''}<button class="mini-btn" type="button" data-show="${esc(g.person_id)}" ${tot?'':'disabled'}>Mostra sulla mappa</button></div></article>`}).join(''):'<div class="empty card">Nessun riferimento corrisponde alla ricerca.</div>');
  $('refGrid').querySelectorAll('[data-show]').forEach(b=>b.addEventListener('click',()=>showOnMap(b.dataset.show)))}
 function showOnMap(pid){const g=REGISTRY.find(x=>x.person_id===pid);if(!g)return;const c=refCounts()[pid]||{ok:0,pending:0};
- Object.values(FILTERS).forEach(s=>s.clear());FILTERS.include.add(g.canonical_name);$('q').value='';QT=[];REVIEW_AUTO=!(c.ok===0&&c.pending>0);SHOWN=PAGE;CARD='';
- document.querySelectorAll('[id^="filter-"]').forEach(h=>h._redraw?.());dirty.esplora=true;showTab('esplora',{push:true});$('mapCard').scrollIntoView({behavior:'smooth'})}
+ Object.values(FILTERS).forEach(s=>s.clear());INCLUDE_OTHER=g.role_category==='other_expansion';$('otherToggle').checked=INCLUDE_OTHER;FILTERS.include.add(g.canonical_name);$('q').value='';QT=[];REVIEW_AUTO=!(c.ok===0&&c.pending>0);SHOWN=PAGE;CARD='';
+ setupPickers();dirty.esplora=true;showTab('esplora',{push:true});$('mapCard').scrollIntoView({behavior:'smooth'})}
 let pqT;$('pq').addEventListener('input',()=>{PQ=$('pq').value.trim();CARD='';clearTimeout(pqT);pqT=setTimeout(()=>{dirty.perche=true;draw();syncHash()},120)});
 $('pqClear').addEventListener('click',()=>{$('pq').value='';PQ='';dirty.perche=true;draw();syncHash();$('pq').focus()});
 $('psort').addEventListener('change',()=>{PSORT=$('psort').value;CARD='';dirty.perche=true;draw();syncHash()});
@@ -517,7 +536,7 @@ const coalOf=v=>{v=String(v||'').trim().toLowerCase();return COALITIONS.includes
 const pct=x=>fmt1(100*x)+'%';
 function polMunicipal(){const byCode=new Map();POLITICS.forEach(p=>byCode.set(String(p.municipality_istat||'').padStart(6,'0'),p));
  const cnt=new Map(),streets=new Map();const outside=new Set();
- DATA.forEach(r=>{if(!r._ok)return;const p=byCode.get(r.municipality_istat_y);if(!p){outside.add(r.municipality_belfiore||r.municipality_name);return}cnt.set(p,(cnt.get(p)||0)+1);if(kindOf(r)==='odonimo')streets.set(p,(streets.get(p)||0)+1)});
+ DATA.forEach(r=>{if(!r._ok||isOther(r)||kindOf(r)==='quartiere')return;const p=byCode.get(r.municipality_istat_y);if(!p){outside.add(r.municipality_belfiore||r.municipality_name);return}cnt.set(p,(cnt.get(p)||0)+1);if(kindOf(r)==='odonimo')streets.set(p,(streets.get(p)||0)+1)});
  const nOd=p=>Number(p.n_odonimi)||0;const hasN=POLITICS.some(p=>nOd(p)>0);
  let thr=0;if(hasN){const ns=POLITICS.map(nOd).filter(n=>n>0).sort((a,b)=>a-b);thr=ns[Math.floor(ns.length*2/3)]}
  const pool=PSIZE==='big'&&hasN?POLITICS.filter(p=>nOd(p)>=thr):POLITICS;
@@ -525,7 +544,7 @@ function polMunicipal(){const byCode=new Map();POLITICS.forEach(p=>byCode.set(St
  pool.forEach(p=>{const x=g[famOf(p.party_family)];x.n++;const c=cnt.get(p)||0;if(c)x.withAny++;x.total+=c;x.streets+=streets.get(p)||0;x.odo+=nOd(p)});
  return{groups:FAMILIES.map(f=>g[f]).filter(x=>x.n),outside:outside.size,matched:[...cnt.keys()].length,hasN,thr,poolN:pool.length}}
 function polRegional(){const per={};
- DATA.forEach(r=>{const k=r.region_name;if(!k)return;const x=per[k]??={region:k,ok:0,den:{}};if(r._ok)x.ok++;const kk=kindOf(r);if(!(kk in x.den)){const t=Number(r.total_kind_region||r.total_odonimi_region);x.den[kk]=Number.isFinite(t)?t:0}});
+ DATA.forEach(r=>{const k=r.region_name;if(!k||isOther(r)||kindOf(r)==='quartiere')return;const x=per[k]??={region:k,ok:0,den:{}};if(r._ok)x.ok++;const kk=kindOf(r);if(!(kk in x.den)){const t=Number(r.total_kind_region||r.total_odonimi_region);x.den[kk]=Number.isFinite(t)?t:0}});
  const pol=new Map((REGION_POLITICS||[]).map(p=>[norm(p.region_name),p]));
  const regions=Object.values(per).map(x=>{const total=Object.values(x.den).reduce((a,b)=>a+b,0);const p=pol.get(norm(x.region));return{region:x.region,ok:x.ok,total,per10k:total?10000*x.ok/total:null,coal:coalOf(p&&p.coalition),president:p?p.president:'',src:p?safeUrl(p.source_url):''}}).filter(x=>x.per10k!=null);
  const g={};COALITIONS.forEach(c=>g[c]={c,n:0,ok:0,total:0});regions.forEach(x=>{const y=g[x.coal];y.n++;y.ok+=x.ok;y.total+=x.total});
@@ -568,7 +587,8 @@ $('themeBtn').addEventListener('click',()=>{const d=document.documentElement;d.d
  const p=new URLSearchParams(location.hash.slice(1));if(p.has('theme')){p.set('theme',d.dataset.theme);try{history.replaceState(null,'',location.pathname+location.search+'#'+p.toString())}catch(e){}}
  Object.keys(dirty).forEach(k=>dirty[k]=true);draw()});
 document.querySelectorAll('#metricSeg .seg').forEach(btn=>btn.addEventListener('click',()=>{METRIC=btn.dataset.metric;document.querySelectorAll('#metricSeg .seg').forEach(x=>x.setAttribute('aria-pressed',String(x===btn)));refresh()}));
-$('reset').addEventListener('click',()=>{Object.values(FILTERS).forEach(s=>s.clear());document.querySelectorAll('[id^="filter-"]').forEach(h=>h._redraw?.());$('q').value='';QT=[];REVIEW_AUTO=true;SHOWN=PAGE;refresh()});
+$('reset').addEventListener('click',()=>{Object.values(FILTERS).forEach(s=>s.clear());INCLUDE_OTHER=false;$('otherToggle').checked=false;setupPickers();$('q').value='';QT=[];REVIEW_AUTO=true;SHOWN=PAGE;refresh()});
+$('otherToggle').addEventListener('change',()=>{INCLUDE_OTHER=$('otherToggle').checked;setupPickers();Object.keys(dirty).forEach(k=>dirty[k]=true);SHOWN=PAGE;refresh()});
 $('downloadData').addEventListener('click',()=>download('toponimi_coloniali_filtrati.csv',csvText(filtered())));
 $('downloadRegistry').addEventListener('click',()=>download('registro_matching_utilizzato.csv',REGISTRY_CSV));
 applyHash();

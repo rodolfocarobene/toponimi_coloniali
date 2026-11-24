@@ -197,6 +197,46 @@ Colonne aggiunte a `dashboard_data.csv`: `site_kind`, `site_detail` (tipo di scu
 centroide comunale più vicino nella stessa regione (approssimato). Il denominatore dei `luogo_pubblico` conta gli
 oggetti OSM con nome delle categorie interrogate; le voci Wikidata non rientrano nel denominatore.
 
+### Quartieri
+
+Il tipo `quartiere` ha tre origini, tutte prodotte da `03c_match_quartieri.py` (da eseguire dopo `04_geocode_matches.py`
+e prima di `05_merge_history.py`):
+
+```bash
+python scripts/02c_download_quartieri.py      # oppure: make download-quartieri
+python scripts/03c_match_quartieri.py         # oppure: make match-quartieri
+python scripts/05_merge_history.py
+```
+
+1. **Quartieri con nome** (`match_method` come per i luoghi pubblici). Fonte: OpenStreetMap via Overpass (ODbL),
+   per regione, `place=quarter|neighbourhood|suburb` e confini amministrativi di livello 9 e 10 con nome (solo centro
+   e tag), in `data/raw/quartieri/` con `manifest.json` (URL, data, dimensione). Wikidata non è usato perché i suoi
+   quartieri sono un sottoinsieme di quelli OSM. Le parole generiche iniziali (`Quartiere`, `Rione`, `Villaggio`,
+   `Zona`, `Borgo`...) sono rimosse prima del confronto, un nome che inizia con un prefisso stradale è scartato.
+   Persona con nome completo o alias esatto: `accepted_auto`. Luoghi e battaglie del registro (Libia, Cirenaica,
+   Istria...): sempre `needs_review`, perché un quartiere con quel nome può essere un toponimo locale e non
+   un'intitolazione. Il solo cognome non basta mai. Il comune è dedotto da `addr:city` o dal centroide comunale più
+   vicino nella regione (approssimato). `total_kind_region` è il numero di quartieri con nome distinti (per comune e
+   nome) della regione.
+2. **Quartieri a tema** (`match_method` `curated_theme`, `person_id` `tema_<id>`, `review_status` `accepted_manual`).
+   Elenco curato in `config/quartieri_tematici.yml` per i quartieri il cui nome non contiene un nome del registro
+   (ad esempio il «Quartiere Africano» di Roma). Ogni voce ha una fonte verificata (`source_url`) e coordinate
+   approssimative ricavate dagli odonimi ANNCSU dell'area. Descrive il corpus di odonimi dell'area e non afferma che le
+   intitolazioni celebrino il ruolo coloniale. Un quartiere a tema sostituisce i match OSM nei suoi 1,5 km e assorbe
+   l'eventuale cluster rilevato.
+3. **Cluster rilevati** (`match_method` `cluster_streets`, `person_id` `cluster`, `canonical_name`
+   «Cluster di odonimi coloniali», sempre `needs_review`). Dai match stradali geocodificati con `accepted_auto`
+   (`street_median`) si cercano gruppi di almeno 5 vie distinte (nome normalizzato diverso, nello stesso comune) entro
+   600 m, con un algoritmo greedy: si prende la via con più vicine nel raggio, il cluster è l'insieme delle vie libere
+   nel raggio, poi si ripete. I cluster hanno quindi diametro massimo di 1,2 km, senza concatenamento. Soglie in
+   `config/sources.yml` (`quartieri.cluster`). Il centro è la mediana delle coordinate. `odonimo` è il nome del quartiere
+   OSM più vicino al centro entro 1 km, altrimenti «Area di <comune>». `site_detail` elenca le vie (le prime 10) e i
+   territori coinvolti. Il nome dell'area non è verificato.
+
+Colonne nuove o con valori nuovi in `dashboard_data.csv`: `site_kind` = `quartiere`, `coord_precision` =
+`cluster_centroid` o `approx_center`, `entity_type` = `cluster` o `theme`, `review_status` = `accepted_manual`
+(solo quartieri a tema), `cluster_n_streets` (numero di vie del cluster, vuoto per le altre righe).
+
 ### Controllo politico dei comuni e delle regioni
 
 ```bash
@@ -310,7 +350,7 @@ Il workflow GitHub Pages rigenererà automaticamente il sito.
 
 ```text
 app/                         dashboard Streamlit
-scripts/                     pipeline e generatore del sito statico (02b/03b: luoghi pubblici)
+scripts/                     pipeline e generatore del sito statico (02b/03b: luoghi pubblici, 02c/03c: quartieri)
 src/colonial_toponymy/       libreria Python
 config/                      configurazione delle fonti
 data/manual/                 registro curato e dati storici manuali

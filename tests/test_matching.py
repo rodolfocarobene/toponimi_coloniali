@@ -73,3 +73,20 @@ def test_multiword_battle_place_matches_after_road_prefix():
     assert match is not None
     assert match["person_id"] == "place_amba_aradam"
     assert match["match_method"] == "exact_canonical"
+
+
+def test_articolo_dopo_prefisso_stradale():
+    from colonial_toponymy.normalize import normalize_odonimo
+
+    assert normalize_odonimo("VIA DELL'AMBA ARADAM") == "amba aradam"
+    assert normalize_odonimo("LARGO DELL’AMBA ARADAM") == "amba aradam"
+    assert normalize_odonimo("VIA DEI MILLE") == "mille"
+    # Senza prefisso stradale l'articolo resta: "Della Porta" e' un cognome.
+    assert normalize_odonimo("DELLA PORTA") == "della porta"
+
+
+def test_apostrofo_come_accento_finale():
+    from colonial_toponymy.normalize import normalize_odonimo
+
+    assert normalize_odonimo("VIA MACALLE'") == normalize_odonimo("Via Macallè") == "macalle"
+    assert normalize_odonimo("VIA DELL'AMBA ARADAM") == "amba aradam"

@@ -18,6 +18,11 @@ def main():
         default="data/processed/public_place_matches.csv",
         help="Matches on schools/universities/other public places (03b). Skipped if the file is missing.",
     )
+    ap.add_argument(
+        "--quartieri",
+        default="data/processed/quartieri_matches.csv",
+        help="Neighbourhoods: named matches, themed districts, detected clusters (03c). Skipped if the file is missing.",
+    )
     ap.add_argument("--output", default="data/processed/dashboard_data.csv")
     args = ap.parse_args()
 
@@ -47,6 +52,14 @@ def main():
         print(f"Added {len(public)} public-place matches from {public_path}")
     else:
         print(f"No public-place matches at {public_path}: dashboard data contains streets only.")
+
+    quartieri_path = Path(args.quartieri)
+    if quartieri_path.exists():
+        quartieri = pd.read_csv(quartieri_path, dtype=str).fillna("")
+        out = pd.concat([out, quartieri], ignore_index=True, sort=False).fillna("")
+        print(f"Added {len(quartieri)} neighbourhood rows from {quartieri_path}")
+    else:
+        print(f"No neighbourhood rows at {quartieri_path}.")
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(args.output, index=False)

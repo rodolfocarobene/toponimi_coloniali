@@ -13,9 +13,9 @@ Italiano per documentazione, testo dell'interfaccia, messaggi di commit e commen
 Identificatori Python in inglese, come nel codice attuale.
 
 ## Ambiente e comandi
-- Virtualenv: `/home/rodolfo/Venv/poutpurri` (`/home/rodolfo/Venv/poutpurri/bin/python`, con pytest);
-  non installare nulla a livello di sistema.
-- Attenzione: l'install editable nel venv punta a un altro checkout (`../italian_colonial_toponymy/src`).
+- Ambiente: progetto uv con `.venv` propria in questa cartella (Python gestito da uv, niente attivazione).
+  Eseguire con `uv run ...`, test con `uv run --extra dev pytest`. Ricostruire con `uv sync`.
+  Non installare nulla a livello di sistema.
   Lanciare script e test con `PYTHONPATH=src` (il Makefile lo esporta già), altrimenti si importa il pacchetto sbagliato.
 - Test: `PYTHONPATH=src pytest -q` (oppure `make test`). Eseguirli dopo ogni modifica a `src/` o agli script di matching.
 - `03_match_streets.py` impiega ~25 minuti; `03b_match_public_places.py` ~90 secondi.
@@ -44,11 +44,13 @@ Identificatori Python in inglese, come nel codice attuale.
 ## Regole di sicurezza
 - **Segreti:** non stampare, loggare, committare né inviare a servizi esterni chiavi API, token,
   password, chiavi SSH o contenuti di `.env`. Se se ne trova uno, segnalarlo senza copiarlo.
-- **Git:** niente commit, push o PR se non richiesto esplicitamente. Mai force-push, mai riscrivere
+- **Git:** Claude è co-autore (approvato da Rodolfo il 2026-11-24): può committare quando ha senso, con
+  `Co-Authored-By`, controllando i file in stage. **Mai `git push`**: lo fa sempre Rodolfo. Niente PR se non richieste. Mai force-push, mai riscrivere
   history già pubblicata, mai `git reset --hard` / `git clean -f` / `git checkout .` su lavoro non committato.
 - **Cancellazione:** non cancellare, sovrascrivere o spostare file/cartelle senza chiedere prima
   (incluse redirezioni che troncano file). Non toccare nulla fuori dal progetto.
-- **`data/manual/`:** solo proposte. Suggerire righe (con fonte) e attendere approvazione prima di modificare.
+- **`data/manual/`:** nuove voci solo con fonte verificata in modo indipendente; modifiche ai valori esistenti solo su richiesta.
+  Territori non africani (Istria, Dalmazia, Dodecaneso, Albania...) vanno in una categoria separata (`other_expansion`).
 - **`data/raw/`:** sola lettura.
 - **Download pesanti:** chiedere prima di eseguire `02_download_anncsu.py` o `04_geocode_matches.py`
   senza `--no-download`.

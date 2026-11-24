@@ -71,3 +71,17 @@ politics:
   party_families: "config/party_families.yml"
   # Campania e Marche mancano tra i presidenti del file regionale: aggiunti a mano in party_families.yml
   # (region_additions) con fonte Wikipedia.
+
+# Quartieri (site_kind "quartiere"): scaricati da scripts/02c_download_quartieri.py in data/raw/quartieri/
+# (manifest.json con URL, data di accesso e dimensione).
+quartieri:
+  overpass_endpoint: "https://overpass-api.de/api/interpreter"
+  # OpenStreetMap (ODbL) via Overpass, per regione: place=quarter|neighbourhood|suburb e confini
+  # amministrativi di livello 9 e 10 con nome (solo centro e tag). Il comune e' il piu' vicino per centroide
+  # nella regione (approssimato). Denominatore total_kind_region: quartieri con nome distinti per regione.
+  themed_districts: "config/quartieri_tematici.yml"
+  # Cluster rilevati dagli odonimi geocodificati: almeno min_streets vie distinte (match accettati) entro radius_m.
+  cluster:
+    min_streets: 5
+    radius_m: 600
+    name_max_distance_m: 1000
