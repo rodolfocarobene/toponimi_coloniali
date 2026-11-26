@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from datetime import date
 from pathlib import Path
 
 DATA_DEFAULTS = [
@@ -22,6 +23,15 @@ REGISTRY_ROW_COLUMNS = [
     "allow_surname_only", "status", "period",
 ]
 REGION_POLITICS_COLUMNS = ["region_name", "president", "coalition", "election_date", "source_url"]
+
+SITE_URL = "https://rodolfocarobene.github.io/toponimi_coloniali/"
+# Logo generico: segnaposto di mappa su sfondo nei colori della pagina.
+FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<rect width="64" height="64" rx="14" fill="#a4452a"/>
+<path d="M32 10c-9.4 0-17 7.4-17 16.6C15 39 32 54 32 54s17-15 17-27.4C49 17.4 41.4 10 32 10z" fill="#f4efe6"/>
+<circle cx="32" cy="26.5" r="6.5" fill="#335d5b"/>
+</svg>
+"""
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -48,7 +58,24 @@ TEMPLATE = r'''<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script>try{var t=new URLSearchParams(location.hash.slice(1)).get("theme")||localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta name="color-scheme" content="light dark">
-<title>Toponimi coloniali italiani</title>
+<title>Toponimi coloniali italiani · Atlante della memoria coloniale</title>
+<meta name="description" content="Mappa interattiva di vie, piazze, scuole e luoghi pubblici italiani intitolati a persone, luoghi e battaglie del colonialismo italiano in Libia, Eritrea, Etiopia e Somalia, con fonti verificabili.">
+<meta name="keywords" content="toponimi coloniali, odonomastica, colonialismo italiano, nomi delle strade, vie coloniali, memoria coloniale, Libia, Eritrea, Etiopia, Somalia, Amba Aradam, Adua, Dogali, ANNCSU, scuole, mappa">
+<meta name="author" content="Rodolfo Carobene">
+<meta name="robots" content="index, follow">
+<meta name="google-site-verification" content="0Plj4qCI4q8SoDmdhSwdGh3ZE92T_5-19Y997-CGneE">
+<meta name="theme-color" content="#a4452a">
+<link rel="canonical" href="__SITE_URL__">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="sitemap" type="application/xml" href="sitemap.xml">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="it_IT">
+<meta property="og:site_name" content="Atlante della memoria coloniale">
+<meta property="og:title" content="Toponimi italiani legati al colonialismo">
+<meta property="og:description" content="Mappa interattiva di vie, piazze, scuole e luoghi pubblici italiani intitolati a figure, luoghi e battaglie del colonialismo italiano.">
+<meta property="og:url" content="__SITE_URL__">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Dataset","name":"Toponimi italiani legati al colonialismo","description":"Odonimi italiani (ANNCSU), scuole e luoghi pubblici intitolati a persone, territori, città e battaglie del colonialismo italiano in Libia, Eritrea, Etiopia e Somalia, con registro curato e fonti verificabili.","url":"__SITE_URL__","inLanguage":"it","isAccessibleForFree":true,"creator":{"@type":"Person","name":"Rodolfo Carobene"},"spatialCoverage":{"@type":"Place","name":"Italia"},"keywords":["colonialismo italiano","odonomastica","toponomastica","memoria coloniale"]}</script>
 <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
 <style>
 :root {
@@ -637,6 +664,7 @@ def build_html(
         for row in rows
     ]
     replacements = {
+        "__SITE_URL__": SITE_URL,
         "__SOURCE__": source.replace("&", "&amp;").replace("<", "&lt;"),
         "__DATA__": js(rows),
         "__REGISTRY_CSV__": js(registry_csv),
@@ -683,6 +711,15 @@ def main() -> None:
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / ".nojekyll").write_text("", encoding="utf-8")
+    (out / "favicon.svg").write_text(FAVICON_SVG, encoding="utf-8")
+    (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}sitemap.xml\n", encoding="utf-8")
+    (out / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"  <url><loc>{SITE_URL}</loc><lastmod>{date.today().isoformat()}</lastmod></url>\n"
+        "</urlset>\n",
+        encoding="utf-8",
+    )
     (out / "index.html").write_text(
         build_html(rows, registry_csv, source, registry_rows, politics, region_politics),
         encoding="utf-8",
